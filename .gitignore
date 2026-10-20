@@ -1,0 +1,10 @@
+build/
+build-*/
+out/
+*.user
+*.user.*
+CMakeLists.txt.user*
+.qtcreator/
+.vs/
+.vscode/
+__pycache__/
