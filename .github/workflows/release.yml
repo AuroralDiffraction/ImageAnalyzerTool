@@ -91,18 +91,29 @@ jobs:
       - name: Write the release notes
         run: python3 .github/scripts/release_info.py notes "$VERSION" --output release-notes.md
 
+      # download-artifact unpacks a downloaded zip by default, so dist/ holds
+      # the package folder ImageAnalyzerTool-<version>/. Zip it again for the
+      # release. (If the zip arrives as it is instead, it is used directly.)
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          package=$(find dist -name "ImageAnalyzerTool-$VERSION.zip" -print -quit)
-          if [ -z "$package" ]; then
-            echo "::error::ImageAnalyzerTool-$VERSION.zip was not in the downloaded artifact:"
-            ls -laR dist
-            exit 1
+          folder="ImageAnalyzerTool-$VERSION"
+          asset="$folder-windows-x64.zip"
+          if [ -f "dist/$folder/ImageAnalyzerTool.exe" ]; then
+            (cd dist && zip -q -r -X "../$asset" "$folder")
+          else
+            raw=$(find dist -maxdepth 1 -type f -print -quit)
+            if [ -n "$raw" ] && unzip -l "$raw" "$folder/ImageAnalyzerTool.exe" > /dev/null 2>&1; then
+              mv "$raw" "$asset"
+            else
+              echo "::error::The downloaded artifact holds neither $folder/ImageAnalyzerTool.exe nor a zip of it:"
+              find dist -maxdepth 3 | head -40
+              exit 1
+            fi
           fi
-          asset="ImageAnalyzerTool-$VERSION-windows-x64.zip"
-          mv "$package" "$asset"
+          unzip -l "$asset" "$folder/ImageAnalyzerTool.exe" > /dev/null  # the .exe is in the zip
+          echo "Release asset $asset: $(unzip -l "$asset" | tail -1)"
           gh release create "v$VERSION" "$asset" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
