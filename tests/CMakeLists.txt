@@ -1,11 +1,13 @@
 find_package(Qt6 REQUIRED COMPONENTS Test)
 
 set(IAT_TEST_DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/data")
+set(IAT_EXAMPLES_DIR "${CMAKE_SOURCE_DIR}/examples")
 
-# Unit tests: MAT reader and processing.
+# Unit tests: MAT, TIFF, PNG and JPEG readers, processing, and the example data.
 qt_add_executable(tst_core tst_core.cpp)
 target_link_libraries(tst_core PRIVATE iacore Qt6::Test)
-target_compile_definitions(tst_core PRIVATE IAT_TEST_DATA_DIR="${IAT_TEST_DATA_DIR}")
+target_compile_definitions(tst_core PRIVATE IAT_TEST_DATA_DIR="${IAT_TEST_DATA_DIR}"
+                                            IAT_EXAMPLES_DIR="${IAT_EXAMPLES_DIR}")
 add_test(NAME tst_core COMMAND tst_core)
 
 # UI smoke test: builds the main window off-screen and loads the test files.

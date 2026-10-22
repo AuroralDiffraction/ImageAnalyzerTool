@@ -1,14 +1,17 @@
-// Unit tests for the MAT-file reader and the processing functions.
-//
-// Optional: set IAT_EXAMPLE_MAT to the path of a real dark-frame file
-// (all_pixel_dark_1.5ms-1.mat) to also check it against values computed
-// independently with SciPy.
+// Unit tests for the MAT-file reader, the TIFF / PNG / JPEG readers and the
+// processing functions.
 
 #include "core/Histogram.h"
 #include "core/Processing.h"
+#include "io/ImageFileReader.h"
 #include "io/MatFileReader.h"
 #include "io/MatFileWriter.h"
+#include "io/TiffReader.h"
 
+#include <QDir>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMap>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -22,6 +25,24 @@ namespace {
 QString fixture(const char* name)
 {
     return QStringLiteral(IAT_TEST_DATA_DIR "/") + QLatin1String(name);
+}
+
+QString formatFixture(const char* name)
+{
+    return QStringLiteral(IAT_TEST_DATA_DIR "/formats/") + QLatin1String(name);
+}
+
+// MATLAB rgb2gray weights.
+constexpr double kR = 0.298936021293775;
+constexpr double kG = 0.587043074451121;
+constexpr double kB = 0.114020904255103;
+
+ImageFrame readImage(const char* name)
+{
+    const ImageFrame f = ImageFileReader::read(formatFixture(name));
+    if (!f.ok())
+        qWarning() << name << f.error;
+    return f;
 }
 
 MatVariable onlyStack(const QString& path)
@@ -325,56 +346,351 @@ private slots:
         QCOMPARE(vars[QStringLiteral("source_file")].dims, (QVector<qint64>{1, 13}));
     }
 
-    void exampleDarkFile()
+    // ---------------------------------------------------------------- TIFF
+
+    void readsUncompressedTiffStrips()
     {
-        const QString path = qEnvironmentVariable("IAT_EXAMPLE_MAT");
-        if (path.isEmpty())
-            QSKIP("Set IAT_EXAMPLE_MAT to all_pixel_dark_1.5ms-1.mat to run this test");
+        const ImageFrame f = readImage("u16_le_strips.tif");
+        QVERIFY(f.ok());
+        QCOMPARE(f.format, QStringLiteral("TIFF"));
+        QCOMPARE(f.matlabClass, QStringLiteral("uint16"));
+        QCOMPARE(f.data.elementType(), ElementType::UInt16);
+        QCOMPARE(f.data.rows(), 6);
+        QCOMPARE(f.data.cols(), 8);
+        QCOMPARE(f.data.frameCount(), 1);
+        QVERIFY(f.note.isEmpty());
+        const Image2D img = f.data.frame(0);
+        for (int r = 0; r < 6; ++r)
+            for (int c = 0; c < 8; ++c)
+                QCOMPARE(img.at(c, r), 1000.0 + 100 * r + 10 * c);
+    }
+
+    void tiffCompressionsMatchUncompressed_data()
+    {
+        QTest::addColumn<QString>("name");
+        QTest::newRow("LZW, predictor, big-endian") << QStringLiteral("u16_be_lzw_predictor.tif");
+        QTest::newRow("Deflate, predictor, BigTIFF") << QStringLiteral("u16_bigtiff_deflate.tif");
+        QTest::newRow("Adobe Deflate, tiles") << QStringLiteral("u16_adobe_deflate_tiles.tif");
+    }
+
+    void tiffCompressionsMatchUncompressed()
+    {
+        QFETCH(QString, name);
+        const ImageFrame ref = readImage("u16_random_uncompressed.tif");
+        QVERIFY(ref.ok());
+        // Reference values from NumPy.
+        const Image2D img = ref.data.frame(0);
+        QCOMPARE(img.at(0, 0), 53638.0);
+        QCOMPARE(img.at(7, 5), 54378.0);
+        QCOMPARE(img.at(79, 63), 12943.0);
+        double sum = 0;
+        for (qsizetype i = 0; i < img.pixelCount(); ++i)
+            sum += img.constData()[i];
+        QCOMPARE(sum, 167843880.0);
+
+        const ImageFrame f = readImage(qPrintable(name));
+        QVERIFY(f.ok());
+        QCOMPARE(f.matlabClass, QStringLiteral("uint16"));
+        QCOMPARE(f.data.rows(), 64);
+        QCOMPARE(f.data.cols(), 80);
+        QCOMPARE(f.data.rawData(), ref.data.rawData());
+    }
+
+    void readsFloatAndSignedTiff()
+    {
+        const ImageFrame f32 = readImage("f32_tiles_deflate_fp_predictor.tif");
+        QVERIFY(f32.ok());
+        QCOMPARE(f32.matlabClass, QStringLiteral("single"));
+        QCOMPARE(f32.data.rows(), 20);
+        QCOMPARE(f32.data.cols(), 36);
+        const ImageFrame f64 = readImage("f64_be.tif");
+        QVERIFY(f64.ok());
+        QCOMPARE(f64.matlabClass, QStringLiteral("double"));
+        for (int r = 0; r < 20; ++r)
+            for (int c = 0; c < 36; ++c) {
+                QCOMPARE(f32.data.frame(0).at(c, r), r * 0.25 - c * 1.5 + 0.125);
+                QCOMPARE(f64.data.frame(0).at(c, r), 3 * (r * 0.25 - c * 1.5 + 0.125));
+            }
+
+        const ImageFrame i16 = readImage("i16_packbits.tif");
+        QVERIFY(i16.ok());
+        QCOMPARE(i16.matlabClass, QStringLiteral("int16"));
+        for (int r = 0; r < 6; ++r)
+            for (int c = 0; c < 8; ++c)
+                QCOMPARE(i16.data.frame(0).at(c, r), double((r - 3) * 100 + c));
+    }
+
+    void readsColourMultipageAndBilevelTiff()
+    {
+        const ImageFrame rgb = readImage("rgb8.tif");
+        QVERIFY(rgb.ok());
+        QCOMPARE(rgb.matlabClass, QStringLiteral("double"));
+        QVERIFY(rgb.note.contains(QLatin1String("rgb2gray")));
+        const ImageFrame grey = readImage("rgb8_equal_channels.tif");
+        QVERIFY(grey.ok());
+        QCOMPARE(grey.matlabClass, QStringLiteral("uint8"));
+        QVERIFY(grey.note.isEmpty());
+        const ImageFrame planar = readImage("rgb16_planar.tif");
+        QVERIFY(planar.ok());
+        const ImageFrame pages = readImage("u16_three_pages.tif");
+        QVERIFY(pages.ok());
+        // Three pages as written by make_fixtures.py; a copy may carry extra
+        // pages (e.g. a metadata IFD appended by other software).
+        QVERIFY2(pages.note.contains(QLatin1String("page 1 of ")), qPrintable(pages.note));
+        const ImageFrame bits = readImage("bilevel.tif");
+        QVERIFY(bits.ok());
+        QCOMPARE(bits.matlabClass, QStringLiteral("logical"));
+        for (int r = 0; r < 6; ++r)
+            for (int c = 0; c < 8; ++c) {
+                QVERIFY(std::abs(rgb.data.frame(0).at(c, r) - (kR * r * 30 + kG * c * 20 + kB * (r + c) * 10)) < 1e-9);
+                QCOMPARE(grey.data.frame(0).at(c, r), double(r * 30 + c));
+                const double v = 1000.0 + 100 * r + 10 * c;
+                QVERIFY(std::abs(planar.data.frame(0).at(c, r)
+                                 - (kR * v + kG * std::floor(v / 2) + kB * std::floor(v / 4))) < 1e-9);
+                QCOMPARE(pages.data.frame(0).at(c, r), v);
+                QCOMPARE(bits.data.frame(0).at(c, r), (r + c) % 3 == 0 ? 1.0 : 0.0);
+            }
+    }
+
+    void rejectsUnsupportedTiff()
+    {
+        const ImageFrame jpeg = readImage("jpeg_compressed.tif");
+        QVERIFY(!jpeg.ok());
+        QVERIFY2(jpeg.error.contains(QLatin1String("JPEG compression is not supported")), qPrintable(jpeg.error));
+        const ImageFrame palette = readImage("palette.tif");
+        QVERIFY(!palette.ok());
+        QVERIFY(palette.error.contains(QLatin1String("palette"), Qt::CaseInsensitive));
+        QVERIFY(!TiffReader::readFromBytes(QByteArray("II*\0garbage")).ok());
+        QVERIFY(!TiffReader::readFromBytes(QByteArray(100, 'x')).ok());
+
+        // Truncated copy of a valid file.
+        QFile file(formatFixture("u16_random_uncompressed.tif"));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QByteArray bytes = file.readAll();
+        QVERIFY(!TiffReader::readFromBytes(bytes.left(bytes.size() / 2)).ok());
+    }
+
+    // ---------------------------------------------------------------- PNG / JPEG
+
+    void readsPngAndJpeg()
+    {
+        const ImageFrame g8 = readImage("grey8.png");
+        QVERIFY(g8.ok());
+        QCOMPARE(g8.format, QStringLiteral("PNG"));
+        QCOMPARE(g8.matlabClass, QStringLiteral("uint8"));
+        const ImageFrame rgb = readImage("rgb8.png");
+        QVERIFY(rgb.ok());
+        QCOMPARE(rgb.matlabClass, QStringLiteral("double"));
+        const ImageFrame rgba16 = readImage("rgba16_equal_channels.png");
+        QVERIFY(rgba16.ok());
+        QCOMPARE(rgba16.matlabClass, QStringLiteral("uint16"));
+        QVERIFY(rgba16.note.contains(QLatin1String("alpha")));
+        for (int r = 0; r < 6; ++r)
+            for (int c = 0; c < 8; ++c) {
+                QCOMPARE(g8.data.frame(0).at(c, r), double(r * 30 + c));
+                QVERIFY(std::abs(rgb.data.frame(0).at(c, r) - (kR * r * 30 + kG * c * 20 + kB * (r + c) * 10)) < 1e-9);
+                QCOMPARE(rgba16.data.frame(0).at(c, r), 1000.0 + 100 * r + 10 * c);
+            }
+
+        // JPEG is lossy, so allow small differences.
+        const ImageFrame jpg = readImage("grey.jpg");
+        QVERIFY(jpg.ok());
+        QCOMPARE(jpg.format, QStringLiteral("JPEG"));
+        QCOMPARE(jpg.matlabClass, QStringLiteral("uint8"));
+        QCOMPARE(jpg.data.rows(), 16);
+        QCOMPARE(jpg.data.cols(), 24);
+        QVERIFY(std::abs(jpg.data.frame(0).at(3, 2) - 100) <= 2);
+        QVERIFY(std::abs(jpg.data.frame(0).at(20, 13) - 200) <= 2);
+        const ImageFrame colour = readImage("colour.jpg");
+        QVERIFY(colour.ok());
+        QCOMPARE(colour.matlabClass, QStringLiteral("double"));
+        QVERIFY(std::abs(colour.data.frame(0).at(5, 5) - (kR * 200 + kG * 50 + kB * 100)) <= 3);
+
+        QVERIFY(!ImageFileReader::read(formatFixture("not_an_image.png")).ok());
+        QVERIFY(!ImageFileReader::read(formatFixture("does_not_exist.png")).ok());
+        QVERIFY(!ImageFileReader::read(formatFixture("does_not_exist.tif")).ok());
+    }
+
+    // ---------------------------------------------------------------- several files
+
+    void readsImageSequenceInNaturalOrder()
+    {
+        // Same values as light_small.mat, given in the wrong order.
+        QStringList pngs;
+        for (int k : {3, 1, 4, 2})
+            pngs << fixture(qPrintable(QStringLiteral("light_png/light_%1.png").arg(k)));
+        const ImageSequence light = ImageFileReader::readSequence(pngs);
+        QVERIFY2(light.ok(), qPrintable(light.error));
+        QCOMPARE(QFileInfo(light.paths.first()).fileName(), QStringLiteral("light_1.png"));
+        QCOMPARE(light.format, QStringLiteral("PNG"));
+        QCOMPARE(light.matlabClass, QStringLiteral("uint16"));
+        const MatVariable mat = onlyStack(fixture("light_small.mat"));
+        QCOMPARE(light.data.frameCount(), 4);
+        QCOMPARE(light.data.rawData(), mat.data.rawData());
+
+        // dark_1, dark_2, dark_10: the frames of dark_small.mat, as float32.
+        const ImageSequence dark = ImageFileReader::readSequence(
+            {fixture("dark_tiff/dark_10.tif"), fixture("dark_tiff/dark_2.tif"), fixture("dark_tiff/dark_1.tif")});
+        QVERIFY2(dark.ok(), qPrintable(dark.error));
+        QCOMPARE(dark.matlabClass, QStringLiteral("single"));
+        QCOMPARE(QFileInfo(dark.paths.last()).fileName(), QStringLiteral("dark_10.tif"));
+        const Image2D tiffMean = processing::meanOverFrames(dark.data);
+        const Image2D matMean = processing::meanOverFrames(onlyStack(fixture("dark_small.mat")).data);
+        for (qsizetype i = 0; i < matMean.pixelCount(); ++i)
+            QCOMPARE(tiffMean.constData()[i], matMean.constData()[i]);
+    }
+
+    void imageSequenceErrorsAndMixedTypes()
+    {
+        const ImageSequence wrongSize =
+            ImageFileReader::readSequence({fixture("light_png/light_1.png"), formatFixture("grey16_5x7.png")});
+        QVERIFY(!wrongSize.ok());
+        QVERIFY(wrongSize.error.contains(QLatin1String("same size")));
+
+        const ImageSequence broken =
+            ImageFileReader::readSequence({fixture("light_png/light_1.png"), formatFixture("not_an_image.png")});
+        QVERIFY(!broken.ok());
+        QVERIFY(broken.error.contains(QLatin1String("not_an_image.png")));
+
+        // uint8 + uint16 + int16: stacked as double, values kept.
+        const ImageSequence mixed = ImageFileReader::readSequence(
+            {formatFixture("grey8.png"), formatFixture("u16_le_strips.tif"), formatFixture("i16_packbits.tif")});
+        QVERIFY2(mixed.ok(), qPrintable(mixed.error));
+        QCOMPARE(mixed.matlabClass, QStringLiteral("double"));
+        QCOMPARE(mixed.data.elementType(), ElementType::Double);
+        QCOMPARE(mixed.format, QStringLiteral("image"));
+        QVERIFY(mixed.notes.join(' ').contains(QLatin1String("different types")));
+        // Natural order: grey8.png, i16_packbits.tif, u16_le_strips.tif
+        QCOMPARE(mixed.data.frame(0).at(7, 5), double(5 * 30 + 7));
+        QCOMPARE(mixed.data.frame(1).at(7, 5), double((5 - 3) * 100 + 7));
+        QCOMPARE(mixed.data.frame(2).at(7, 5), 1000.0 + 500 + 70);
+    }
+
+    void naturalSortSelectionAndNames()
+    {
+        QVERIFY(naturalLess(QStringLiteral("frame_2.png"), QStringLiteral("frame_10.png")));
+        QVERIFY(!naturalLess(QStringLiteral("frame_10.png"), QStringLiteral("frame_2.png")));
+        QVERIFY(naturalLess(QStringLiteral("Frame_02.png"), QStringLiteral("frame_3.png")));
+        QVERIFY(naturalLess(QStringLiteral("a.png"), QStringLiteral("a1.png")));
+        QStringList paths{"x/img10.tif", "y/img9.tif", "x/img1.tif", "z/img100.tif"};
+        sortNaturally(paths);
+        QCOMPARE(paths, (QStringList{"x/img1.tif", "y/img9.tif", "x/img10.tif", "z/img100.tif"}));
+
+        FileSelection s = selectFiles({"a.mat"}, true);
+        QVERIFY(s.ok() && s.isMat && s.files.size() == 1);
+        s = selectFiles({"a.png", "b.TIF", "c.jpeg", "notes.txt"}, true);
+        QVERIFY(s.ok() && !s.isMat);
+        QCOMPARE(s.files.size(), 3);
+        QCOMPARE(s.ignored, 1);
+        QVERIFY(!selectFiles({"a.mat", "b.mat"}, true).ok());
+        QVERIFY(!selectFiles({"a.mat", "b.png"}, true).ok());
+        QVERIFY(!selectFiles({"a.png", "b.png"}, false).ok());
+        QVERIFY(selectFiles({"a.png"}, false).ok());
+        QVERIFY(!selectFiles({"notes.txt"}, true).ok());
+        QVERIFY(!selectFiles({}, true).ok());
+
+        QCOMPARE(baseNameFor({"d/light_001.png", "d/light_002.png", "d/light_010.png"}), QStringLiteral("light"));
+        QCOMPARE(baseNameFor({"d/stack.mat"}), QStringLiteral("stack"));
+        QCOMPARE(baseNameFor({"d/1.png", "d/2.png"}), QStringLiteral("images"));
+    }
+
+    // examples/: simulated sensor data written by examples/make_examples.py,
+    // with reference values computed by NumPy in reference.json. Set
+    // IAT_EXAMPLES_DIR to check a set generated elsewhere (e.g. larger, with
+    // make_examples.py --rows 1028 --cols 1408 --frames 20 --out <folder>).
+    void exampleDataset()
+    {
+        const QString dir = qEnvironmentVariable("IAT_EXAMPLES_DIR", QStringLiteral(IAT_EXAMPLES_DIR));
+        QFile file(dir + QStringLiteral("/reference.json"));
+        QVERIFY2(file.open(QIODevice::ReadOnly), "examples/reference.json is missing: run examples/make_examples.py");
+        const QJsonObject ref = QJsonDocument::fromJson(file.readAll()).object();
+        auto refValue = [&](const QStringList& path) {
+            QJsonValue v = ref;
+            for (const QString& key : path)
+                v = v.toObject().value(key);
+            return v.toDouble(std::nan(""));
+        };
+        auto close = [](double a, double b) { return std::abs(a - b) <= 1e-9 * std::max(1.0, std::abs(b)); };
+        const QJsonArray size = ref.value(QStringLiteral("size")).toArray();
+        const int rows = size.at(0).toInt();
+        const int cols = size.at(1).toInt();
+        const int frames = size.at(2).toInt();
 
         QElapsedTimer timer;
         timer.start();
-        const MatVariable v = onlyStack(path);
-        const qint64 readMs = timer.restart();
-        QCOMPARE(v.name, QStringLiteral("all_pixel"));
-        QCOMPARE(v.matlabClass, QStringLiteral("double"));
-        QCOMPARE(v.dims, (QVector<qint64>{1028, 1408, 20}));
-
-        // Reference values from SciPy (0-based indices [row, col, frame]).
-        QCOMPARE(v.data.frame(3).at(2, 1), 8446.0);
-        QCOMPARE(v.data.frame(5).at(20, 10), 8510.0);
-        QCOMPARE(v.data.frame(0).at(4, 0), 8380.0);
-
-        const ImageStats f0 = v.data.frame(0).computeStats();
-        QCOMPARE(f0.min >= 5311.0, true);
-        QVERIFY(std::abs(f0.mean - 8526.105092909887) < 1e-6);
-
-        const Image2D mean = processing::meanOverFrames(v.data);
-        const qint64 meanMs = timer.elapsed();
-        const ImageStats ms = mean.computeStats();
-        QVERIFY(std::abs(ms.mean - 8526.095962585945) < 1e-6);
-        QCOMPARE(ms.min, 5353.35);
-        QCOMPARE(ms.max, 16383.0);
+        const MatVariable light = onlyStack(dir + QStringLiteral("/light_frames.mat"));
+        const MatVariable dark = onlyStack(dir + QStringLiteral("/dark_frames.mat"));
+        QCOMPARE(light.name, QStringLiteral("all_pixel"));
+        QCOMPARE(light.matlabClass, QStringLiteral("double"));
+        QCOMPARE(light.data.elementType(), ElementType::UInt16);  // as MATLAB stores whole numbers
+        QCOMPARE(light.dims, (QVector<qint64>{rows, cols, frames}));
+        QCOMPARE(dark.dims, light.dims);
+        QCOMPARE(light.data.frame(0).at(0, 0), refValue({"pixels", "light(1,1,1)"}));
+        QCOMPARE(light.data.frame(frames - 1).at(cols - 1, rows - 1), refValue({"pixels", "light(end,end,end)"}));
+        QCOMPARE(dark.data.frame(1).at(4, 2), refValue({"pixels", "dark(3,5,2)"}));
 
         // calculateImageStats / calculateImageNoise against NumPy.
-        timer.restart();
-        const processing::MeanStd s1 = processing::calculateImageStats(v.data.frame(0));
-        QVERIFY(std::abs(s1.mean - 8526.105092909887) < 1e-8);
-        QVERIFY(std::abs(s1.std - 164.148862251702) < 1e-8);
-        const processing::MeanStd sd = processing::calculateImageStats(mean);
-        QVERIFY(std::abs(sd.std - 163.889064652385) < 1e-8);
-        const processing::MeanStd sc = processing::calculateImageStats(processing::subtract(v.data.frame(0), mean));
-        QVERIFY(std::abs(sc.mean - 0.009130323941) < 1e-9);
-        QVERIFY(std::abs(sc.std - 9.532488209494) < 1e-8);
-        const processing::MeanStd sAll = processing::calculateImageStats(v.data);
-        QVERIFY(std::abs(sAll.std - 164.166033086360) < 1e-8);
-        const double noise = processing::calculateImageNoise(v.data);
-        QVERIFY(std::abs(noise - 9.532098755154) < 1e-9);
-        const double calNoise = processing::calculateImageNoise(v.data, mean);
-        QVERIFY(std::abs(calNoise - 9.532098755154) < 1e-9);
-        const qint64 noiseMs = timer.elapsed();
+        auto checkStats = [&](const processing::MeanStd& ms, const QStringList& path) {
+            return close(ms.mean, refValue(path + QStringList{"mean"})) && close(ms.std, refValue(path + QStringList{"std"}));
+        };
+        const Image2D lightMean = processing::meanOverFrames(light.data);
+        const Image2D darkMean = processing::meanOverFrames(dark.data);
+        QVERIFY(checkStats(processing::calculateImageStats(light.data.frame(0)), {"light", "frame1"}));
+        QVERIFY(checkStats(processing::calculateImageStats(lightMean), {"light", "mean_image"}));
+        QVERIFY(checkStats(processing::calculateImageStats(light.data), {"light", "all_frames"}));
+        QVERIFY(close(processing::calculateImageNoise(light.data), refValue({"light", "noise"})));
+        QVERIFY(checkStats(processing::calculateImageStats(dark.data.frame(0)), {"dark", "frame1"}));
+        QVERIFY(checkStats(processing::calculateImageStats(darkMean), {"dark", "mean_image"}));
+        QVERIFY(close(processing::calculateImageNoise(dark.data), refValue({"dark", "noise"})));
+        const Image2D calibrated = processing::subtract(light.data.frame(0), darkMean);
+        QVERIFY(checkStats(processing::calculateImageStats(calibrated), {"calibrated", "light_frame1_minus_dark_mean"}));
+        QVERIFY(checkStats(processing::calculateImageStats(processing::subtract(lightMean, darkMean)),
+                           {"calibrated", "light_mean_minus_dark_mean"}));
+        QVERIFY(checkStats(processing::calculateImageStats(processing::subtract(light.data.frame(0), dark.data.frame(0))),
+                           {"calibrated", "light_frame1_minus_dark_frame1"}));
+        QVERIFY(close(processing::calculateImageNoise(light.data, darkMean), refValue({"calibrated", "noise"})));
+        const ImageStats ds = dark.data.frame(0).computeStats();
+        QCOMPARE(ds.max, 16383.0);  // a saturated hot pixel
 
-        qInfo("example file: read %lld ms, mean over frames %lld ms, stats + 2x noise %lld ms",
-              readMs, meanMs, noiseMs);
+        const qint64 matMs = timer.restart();
+
+        // The same frames as TIFF and PNG files: identical values.
+        auto files = [&](const QString& folder, const QString& pattern) {
+            QStringList out;
+            const QDir d(dir + QLatin1Char('/') + folder);
+            for (const QString& name : d.entryList({pattern}, QDir::Files))
+                out << d.filePath(name);
+            return out;
+        };
+        for (const auto& [name, mat] : {std::pair{QStringLiteral("light"), light}, std::pair{QStringLiteral("dark"), dark}}) {
+            for (const auto& [folder, pattern] : {std::pair{QStringLiteral("_tiff"), QStringLiteral("*.tif")},
+                                                  std::pair{QStringLiteral("_png"), QStringLiteral("*.png")}}) {
+                const ImageSequence seq = ImageFileReader::readSequence(files(name + folder, pattern));
+                QVERIFY2(seq.ok(), qPrintable(seq.error));
+                QCOMPARE(seq.matlabClass, QStringLiteral("uint16"));
+                QCOMPARE(seq.data.frameCount(), frames);
+                QVERIFY2(seq.data.rawData() == mat.data.rawData(), qPrintable(name + folder));
+            }
+            // JPEG: 8-bit (values / 64) and lossy.
+            const ImageSequence jpg = ImageFileReader::readSequence(files(name + QStringLiteral("_jpg"), QStringLiteral("*.jpg")));
+            QVERIFY2(jpg.ok(), qPrintable(jpg.error));
+            QCOMPARE(jpg.matlabClass, QStringLiteral("uint8"));
+            QCOMPARE(jpg.data.frameCount(), frames);
+            QCOMPARE(jpg.data.rows(), rows);
+            const double jpgMean = processing::calculateImageStats(jpg.data.frame(0)).mean;
+            QVERIFY(std::abs(jpgMean - refValue({"jpeg_frame1_mean_pillow", name})) < 0.5);
+        }
+
+        // calibrated_frame01.tif: light(:, :, 1) - mean(dark, 3) as float32.
+        const ImageFrame cal = ImageFileReader::read(dir + QStringLiteral("/calibrated_frame01.tif"));
+        QVERIFY2(cal.ok(), qPrintable(cal.error));
+        QCOMPARE(cal.matlabClass, QStringLiteral("single"));
+        const Image2D calImage = cal.data.frame(0);
+        for (qsizetype i = 0; i < calImage.pixelCount(); ++i)
+            QCOMPARE(calImage.constData()[i], double(float(calibrated.constData()[i])));
+
+        qInfo("example data %dx%dx%d: .mat files and processing %lld ms, image files %lld ms", rows, cols, frames,
+              matMs, qint64(timer.elapsed()));
     }
 };
 

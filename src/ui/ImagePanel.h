@@ -9,6 +9,7 @@
 
 #include <limits>
 
+class QButtonGroup;
 class QCheckBox;
 class QLabel;
 class QMimeData;
@@ -26,24 +27,37 @@ class ImageView;
 
 enum class PanelRole { Light, Dark, Calibrated };
 
+// What the light and dark panels show from their stack.
+enum class FrameMode {
+    Single,  // one frame, chosen with the frame selector
+    Mean,    // pixel-by-pixel mean over all frames (MATLAB: mean(stack, 3))
+};
+
 // What a panel's export controls ask the tab to save.
 enum class ExportKind {
     ImagePng,  // the image as displayed (current contrast), full resolution
     FrameMat,  // raw values of the image on display, plus Mean/Std/Noise
-    StackMat,  // raw values of all frames (light / calibrated panels)
+    StackMat,  // raw values of all frames of the stack behind the panel
 };
 
 // One of the three panels in a session tab:
-//   title and source information
+//   title, Single frame / Mean toggle (light and dark), Load… button
+//   source information
 //   image (zoom / pan / pixel read-out / right-click menu)
-//   frame selector with ◀ ▶ buttons (light frames only)
+//   frame selector with ◀ ▶ buttons (light and dark frames, and a stack
+//   loaded into the calibrated panel)
 //   histogram with contrast markers
 //   Min / Max contrast sliders
 //   Mean and Std of the displayed image (calculateImageStats) and the
 //   temporal noise of the stack behind it (calculateImageNoise)
 //   export buttons
 //
-// Light and Dark panels accept .mat files dropped onto them.
+// Every panel accepts files dropped onto it: one .mat file, or TIFF / PNG /
+// JPEG images (several at once in the light and dark panels).
+//
+// The calibrated panel shows a red "Auto calibration off" indicator while it
+// holds an image loaded from a file; clicking it asks to go back to
+// automatic calibration.
 class ImagePanel : public QFrame {
     Q_OBJECT
 public:
@@ -51,6 +65,10 @@ public:
 
     PanelRole role() const { return m_role; }
     QString title() const;
+
+    // The same width for every panel, so a tab's three images start out
+    // the same size and line up (the controls make the minimum widths differ).
+    QSize sizeHint() const override;
 
     // Shows an image. With resetContrast the displayed range is set
     // automatically (0.5–99.5 % percentiles); otherwise the current Min/Max
@@ -64,11 +82,22 @@ public:
     void setSourceInfo(const QString& text, const QString& tooltip = QString());
     QString sourceInfo() const;
 
-    // Light panel: number of frames to choose from (0 hides the selector).
-    // Resets the selection to the first frame.
+    // Number of frames to choose from (0 hides the selector). Resets the
+    // selection to the first frame.
     void setFrameCount(int count);
+    int frameCount() const { return m_frameCount; }
     int currentFrame() const;   // 0-based
     void setCurrentFrame(int index);
+
+    // Light and dark panels: one frame or the mean over all frames. The
+    // frame selector is disabled in Mean mode. Defaults: light Single,
+    // dark Mean. The calibrated panel is always Single.
+    FrameMode frameMode() const { return m_mode; }
+    void setFrameMode(FrameMode mode);  // emits frameModeChanged if it changes
+
+    // Calibrated panel: shows or hides the red "Auto calibration off" indicator.
+    void setAutoCalibrationOff(bool off);
+    bool isAutoCalibrationOff() const { return m_autoOff; }
 
     // Temporal noise (calculateImageNoise) of the stack behind this panel.
     // It is computed in the background, so the panel can show "…" until the
@@ -100,14 +129,18 @@ public slots:
     void setDisplayRange(double low, double high);
     void autoContrast();
     void fullRangeContrast();
-    void stepFrame(int delta);          // light panel: previous (-1) / next (+1) frame
+    void stepFrame(int delta);          // previous (-1) / next (+1) frame
     void copyImageToClipboard();
     void copyReportToClipboard();
 
 signals:
-    void fileDropped(const QString& path);
+    // Files dropped onto the panel, already checked with selectFiles().
+    void filesDropped(const QStringList& paths);
     void loadRequested();
     void currentFrameChanged(int index);
+    void frameModeChanged(iat::FrameMode mode);
+    // The "Auto calibration off" indicator was clicked.
+    void autoCalibrationRequested();
     void exportRequested(iat::ExportKind kind);
     void message(const QString& text);  // for the status bar
 
@@ -118,11 +151,12 @@ protected:
     void contextMenuEvent(QContextMenuEvent* event) override;
 
 private:
-    static QString matPathFrom(const QMimeData* mime);
+    QStringList droppedPaths(const QMimeData* mime, QString* error) const;
     void setDropHighlight(bool on);
+    void updateFrameControls();
+    void updateStatTooltips();
     void render();
     void updateStatsLabel();
-    void updateFrameButtons();
     void showPixel(int x, int y);
     void setControlsEnabled(bool on);
     void showContextMenu(const QPoint& globalPos);
@@ -141,10 +175,17 @@ private:
     double m_high = 1.0;
     bool m_rangeValid = false;
     QString m_defaultPlaceholder;
+    FrameMode m_mode = FrameMode::Single;
+    int m_frameCount = 0;
+    bool m_autoOff = false;
 
     QLabel* m_title = nullptr;
     QLabel* m_source = nullptr;
     QToolButton* m_loadButton = nullptr;
+    QToolButton* m_singleButton = nullptr;
+    QToolButton* m_meanButton = nullptr;
+    QButtonGroup* m_modeGroup = nullptr;
+    QToolButton* m_autoOffButton = nullptr;
     QStackedWidget* m_stack = nullptr;
     QLabel* m_placeholder = nullptr;
     ImageView* m_view = nullptr;
@@ -153,6 +194,7 @@ private:
     QToolButton* m_nextButton = nullptr;
     QSlider* m_frameSlider = nullptr;
     QSpinBox* m_frameSpin = nullptr;
+    QLabel* m_frameLabel = nullptr;
     QLabel* m_frameTotal = nullptr;
     QCheckBox* m_logCheck = nullptr;
     QToolButton* m_autoButton = nullptr;
@@ -162,6 +204,8 @@ private:
     QLabel* m_pixelLabel = nullptr;
     QLabel* m_meanValue = nullptr;
     QLabel* m_stdValue = nullptr;
+    QLabel* m_meanCaption = nullptr;
+    QLabel* m_stdCaption = nullptr;
     QLabel* m_noiseValue = nullptr;
     QLabel* m_rangeLabel = nullptr;
     QToolButton* m_saveMatButton = nullptr;

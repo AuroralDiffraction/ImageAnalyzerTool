@@ -1,12 +1,25 @@
 name: Build
 
-on: [push, pull_request, workflow_dispatch]
+# Builds, tests and packages the Windows app on every push and pull request.
+# The release workflow (release.yml) runs this too, before it publishes.
+#
+# The package is uploaded as the artifact ImageAnalyzerTool-<version>.zip,
+# the same zip the "deploy" target makes: unzip it and run the .exe.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
@@ -21,10 +34,27 @@ jobs:
       - name: Build
         run: cmake --build build --config Release
 
+      # tst_core: file readers and processing; ui_smoke: the main window,
+      # off-screen (QT_QPA_PLATFORM=offscreen is set in tests/CMakeLists.txt).
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure --timeout 600
+
+      - name: Keep the test log
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-log
+          path: build/Testing/Temporary/LastTest*.log
+          if-no-files-found: ignore
+
       - name: Package
         run: cmake --build build --config Release --target deploy
 
-      - uses: actions/upload-artifact@v4
+      # archive: false uploads the zip itself (not a zip inside a zip); the
+      # artifact is named after the file, e.g. ImageAnalyzerTool-0.2.0.zip.
+      - name: Upload the package
+        uses: actions/upload-artifact@v7
         with:
-          name: ImageAnalyzerTool-windows
-          path: build/dist/ImageAnalyzerTool-*/
+          path: build/dist/ImageAnalyzerTool-*.zip
+          archive: false
+          if-no-files-found: error

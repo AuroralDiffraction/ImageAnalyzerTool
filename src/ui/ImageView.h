@@ -58,6 +58,7 @@ protected:
 private:
     void updateSmoothing();
     void onScrolled();
+    double maxZoom() const;
 
     QGraphicsScene* m_scene = nullptr;
     QGraphicsPixmapItem* m_item = nullptr;

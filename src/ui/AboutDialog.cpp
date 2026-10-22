@@ -50,10 +50,10 @@ AboutDialog::AboutDialog(QWidget* parent)
     text->setOpenExternalLinks(true);
     text->setTextInteractionFlags(Qt::TextBrowserInteraction);
     text->setText(tr("<p>Dark-frame calibration and noise analysis for image stacks stored in MATLAB "
-                     ".mat files.</p>"
-                     "<p><b>Light frames</b>: one frame of the X × Y × Z stack<br>"
-                     "<b>Dark frames</b>: pixel-by-pixel mean over Z<br>"
-                     "<b>Calibrated frames</b>: light frame − mean dark frame</p>"
+                     ".mat files or in TIFF, PNG and JPEG images.</p>"
+                     "<p><b>Light frames</b>: one frame of the X × Y × Z stack, or the mean over Z<br>"
+                     "<b>Dark frames</b>: the pixel-by-pixel mean over Z, or one frame<br>"
+                     "<b>Calibrated frames</b>: light image − dark image</p>"
                      "<p>Made by %1<br><a href=\"%2\">%3</a></p>"
                      "<p style=\"color:gray\">Built with Qt %4</p>")
                       .arg(link, homepage(), shortUrl, QString::fromLatin1(qVersion())));

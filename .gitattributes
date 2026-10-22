@@ -1,0 +1,11 @@
+# Data files are binary: git never changes their line endings (Windows
+# checkouts, including GitHub's Windows runners, convert text files to CRLF).
+# This also covers the test files that are text pretending to be data
+# (tests/data/not_a_mat.mat, tests/data/formats/not_an_image.png).
+*.mat  binary
+*.tif  binary
+*.tiff binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.ico  binary

@@ -1,0 +1,60 @@
+{
+  "description": "Values computed with NumPy by make_examples.py. Frame numbers are 1-based, as in MATLAB. Mean/std follow calculateImageStats, noise calculateImageNoise.",
+  "size": [
+    128,
+    160,
+    8
+  ],
+  "variable": "all_pixel",
+  "pixels": {
+    "light(1,1,1)": 10123,
+    "light(end,end,end)": 10284,
+    "dark(3,5,2)": 8389,
+    "saturated_dark_pixels_frame1": 1
+  },
+  "light": {
+    "frame1": {
+      "mean": 9979.882421875,
+      "std": 732.8407617442018
+    },
+    "mean_image": {
+      "mean": 9979.413006591796,
+      "std": 732.2767257619894
+    },
+    "all_frames": {
+      "mean": 9979.413006591796,
+      "std": 732.7965012499436
+    },
+    "noise": 27.595455268191177
+  },
+  "dark": {
+    "frame1": {
+      "mean": 8410.08154296875,
+      "std": 236.54701524444724
+    },
+    "mean_image": {
+      "mean": 8410.013366699219,
+      "std": 236.36811634099186
+    },
+    "noise": 8.891360652368583
+  },
+  "calibrated": {
+    "light_frame1_minus_dark_mean": {
+      "mean": 1569.8690551757813,
+      "std": 699.0266303951412
+    },
+    "light_mean_minus_dark_mean": {
+      "mean": 1569.399639892578,
+      "std": 698.4354110702811
+    },
+    "light_frame1_minus_dark_frame1": {
+      "mean": 1569.80087890625,
+      "std": 699.0398387023286
+    },
+    "noise": 27.595455268191177
+  },
+  "jpeg_frame1_mean_pillow": {
+    "light": 155.9361328125,
+    "dark": 131.38486328125
+  }
+}

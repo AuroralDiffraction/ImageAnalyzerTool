@@ -1,0 +1,111 @@
+name: Release
+
+# Publishes a GitHub release whenever the version in CMakeLists.txt,
+# project(... VERSION x.y.z), has no release yet:
+#
+#   1. bump the version in CMakeLists.txt and add a "## x.y.z" section to
+#      CHANGELOG.md;
+#   2. push to main.
+#
+# This workflow then builds and tests the app (the Build workflow), and
+# creates release vx.y.z with ImageAnalyzerTool-x.y.z-windows-x64.zip and
+# the CHANGELOG.md section as release notes. Pushes that do not change the
+# version find the release already there and stop after a few seconds.
+#
+# To retry a failed release, or to release without pushing, run it from the
+# Actions tab (Run workflow, on main).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One release at a time, so two quick pushes cannot both publish.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Check the version
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release-needed: ${{ steps.check.outputs.release-needed }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read the version from CMakeLists.txt
+        id: version
+        run: |
+          version=$(python3 .github/scripts/release_info.py version)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version in CMakeLists.txt: $version"
+
+      - name: Is there a release for it already?
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if output=$(gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" --json tagName 2>&1); then
+            echo "release-needed=false" >> "$GITHUB_OUTPUT"
+            echo "Release v$VERSION exists already, so there is nothing to publish. Bump the version in CMakeLists.txt for a new release." | tee -a "$GITHUB_STEP_SUMMARY"
+          elif echo "$output" | grep -qi "not found"; then
+            echo "release-needed=true" >> "$GITHUB_OUTPUT"
+            echo "No release v$VERSION yet: building and publishing it." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::Could not check the releases: $output"
+            exit 1
+          fi
+
+  build:
+    name: Build and test
+    needs: version
+    if: needs.version.outputs.release-needed == 'true'
+    uses: ./.github/workflows/cmake-single-platform.yml
+
+  publish:
+    name: Publish the release
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # The Build workflow names the package after PROJECT_VERSION, so this
+      # also fails if the version read above does not match what CMake built.
+      - name: Download the package
+        uses: actions/download-artifact@v8
+        with:
+          name: ImageAnalyzerTool-${{ needs.version.outputs.version }}.zip
+          path: dist
+
+      - name: Write the release notes
+        run: python3 .github/scripts/release_info.py notes "$VERSION" --output release-notes.md
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          package=$(find dist -name "ImageAnalyzerTool-$VERSION.zip" -print -quit)
+          if [ -z "$package" ]; then
+            echo "::error::ImageAnalyzerTool-$VERSION.zip was not in the downloaded artifact:"
+            ls -laR dist
+            exit 1
+          fi
+          asset="ImageAnalyzerTool-$VERSION-windows-x64.zip"
+          mv "$package" "$asset"
+          gh release create "v$VERSION" "$asset" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Image Analyzer Tool $VERSION" \
+            --notes-file release-notes.md
+          echo "Published [v$VERSION]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/v$VERSION) with $asset." >> "$GITHUB_STEP_SUMMARY"

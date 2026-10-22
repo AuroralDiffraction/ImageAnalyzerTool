@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.19)
 
 project(ImageAnalyzerTool
-    VERSION 0.1.0
-    DESCRIPTION "Dark-frame calibration and noise analysis for image stacks in MATLAB .mat files"
+    VERSION 0.2.0
+    DESCRIPTION "Dark-frame calibration and noise analysis for image stacks (MATLAB .mat, TIFF, PNG, JPEG)"
     HOMEPAGE_URL "https://github.com/AuroralDiffraction"
     LANGUAGES CXX)
 
@@ -24,8 +24,9 @@ if(MSVC)
 endif()
 
 # ---------------------------------------------------------------------------
-# iacore: data model, processing and file I/O. No GUI dependency, so the same
-# code can later drive a command-line batch runner and be unit-tested.
+# iacore: data model, processing and file I/O. No widgets (Qt Gui is used only
+# to decode PNG and JPEG files), so the same code can later drive a
+# command-line batch runner and be unit-tested.
 # ---------------------------------------------------------------------------
 add_library(iacore STATIC
     src/core/ElementType.h      src/core/ElementType.cpp
@@ -35,9 +36,12 @@ add_library(iacore STATIC
     src/core/Processing.h       src/core/Processing.cpp
     src/io/MatFileReader.h      src/io/MatFileReader.cpp
     src/io/MatFileWriter.h      src/io/MatFileWriter.cpp
+    src/io/TiffReader.h         src/io/TiffReader.cpp
+    src/io/ImageFileReader.h    src/io/ImageFileReader.cpp
 )
 target_include_directories(iacore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR}/generated)
-target_link_libraries(iacore PUBLIC Qt6::Core)
+# Qt Gui only for QImage's PNG and JPEG decoders (no widgets; works headless).
+target_link_libraries(iacore PUBLIC Qt6::Core Qt6::Gui)
 
 # AppInfo.h: name, version, author and homepage from the values above.
 configure_file(src/AppInfo.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/AppInfo.h @ONLY)
@@ -107,10 +111,14 @@ if(WIN32)
         set(IAT_DIST_ROOT "${CMAKE_BINARY_DIR}/dist")
         set(IAT_DIST_DIR "${IAT_DIST_ROOT}/${IAT_DIST_NAME}")
 
-        # MinGW builds need the GCC runtime DLLs next to the .exe. They are
-        # copied from the compiler's own folder, so this works whatever is
-        # on PATH. (MSVC builds use the Visual C++ runtime, which Windows PCs
-        # normally already have.)
+        # The compiler's runtime DLLs go next to the .exe too.
+        # MinGW: the GCC runtime, copied from the compiler's own folder, so
+        # this works whatever is on PATH.
+        # MSVC: the Visual C++ runtime (msvcp140.dll, vcruntime140.dll, ...).
+        # Many PCs have it installed, but not all, and windeployqt only adds
+        # it when run from a Visual Studio command prompt. CMake finds it in
+        # the Visual Studio installation; Microsoft allows copying these DLLs
+        # next to an application.
         set(_iat_runtime_commands)
         if(MINGW)
             get_filename_component(_iat_mingw_bin "${CMAKE_CXX_COMPILER}" DIRECTORY)
@@ -118,6 +126,15 @@ if(WIN32)
                 if(EXISTS "${_iat_mingw_bin}/${_dll}")
                     list(APPEND _iat_runtime_commands
                          COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_iat_mingw_bin}/${_dll}" "${IAT_DIST_DIR}")
+                endif()
+            endforeach()
+        elseif(MSVC)
+            set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)  # only find them, no install() rules
+            include(InstallRequiredSystemLibraries)
+            foreach(_dll IN LISTS CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS)
+                if(EXISTS "${_dll}")
+                    list(APPEND _iat_runtime_commands
+                         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_dll}" "${IAT_DIST_DIR}")
                 endif()
             endforeach()
         endif()

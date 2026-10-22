@@ -1,11 +1,13 @@
 #include "ui/ImagePanel.h"
 
 #include "core/Processing.h"
+#include "io/ImageFileReader.h"
 #include "ui/ContrastControl.h"
 #include "ui/HistogramWidget.h"
 #include "ui/ImageView.h"
 
 #include <QApplication>
+#include <QButtonGroup>
 #include <QCheckBox>
 #include <QClipboard>
 #include <QContextMenuEvent>
@@ -15,11 +17,13 @@
 #include <QFontMetrics>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QImage>
 #include <QLabel>
 #include <QMenu>
 #include <QMimeData>
 #include <QPainter>
+#include <QPixmap>
 #include <QSignalBlocker>
 #include <QSlider>
 #include <QSpinBox>
@@ -67,20 +71,44 @@ QString placeholderFor(PanelRole role)
 {
     switch (role) {
     case PanelRole::Light:
-        return QObject::tr("Drop a .mat file with light frames here\n"
-                           "(an X × Y × Z array: Z images of X × Y pixels)\n\n"
+        return QObject::tr("Drop light frames here:\n"
+                           "a .mat file with an X × Y × Z array (Z frames),\n"
+                           "or one or more TIFF, PNG or JPG images (one frame each)\n\n"
                            "or click Load…");
     case PanelRole::Dark:
-        return QObject::tr("Drop a .mat file with dark frames here\n\n"
-                           "The pixel-by-pixel mean over all Z frames\n"
+        return QObject::tr("Drop dark frames here:\n"
+                           "a .mat file with an X × Y × Z array (Z frames),\n"
+                           "or one or more TIFF, PNG or JPG images (one frame each)\n\n"
+                           "In Mean mode, the pixel-by-pixel mean over all frames\n"
                            "becomes the dark frame.\n\n"
                            "or click Load…");
     case PanelRole::Calibrated:
         return QObject::tr("Load light frames and dark frames.\n\n"
                            "This panel then shows\n"
-                           "selected light frame − mean dark frame.");
+                           "light image − dark image\n"
+                           "(the two images on display).\n\n"
+                           "To show a calibrated image from a file instead,\n"
+                           "drop a .mat, TIFF, PNG or JPG file here.");
     }
     return {};
+}
+
+// Small red disc for the "Auto calibration off" indicator.
+QIcon redDotIcon()
+{
+    QIcon icon;
+    for (int size : {10, 20, 30}) {
+        QPixmap pm(size, size);
+        pm.fill(Qt::transparent);
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(0xD3, 0x2F, 0x2F));
+        p.drawEllipse(QRectF(0.5, 0.5, size - 1.0, size - 1.0));
+        p.end();
+        icon.addPixmap(pm);
+    }
+    return icon;
 }
 
 void mute(QLabel* label)
@@ -111,7 +139,7 @@ ImagePanel::ImagePanel(PanelRole role, QWidget* parent)
         "QFrame#imagePanel { border: 1px solid palette(mid); border-radius: 6px; }"
         "QFrame#imagePanel[dropActive=\"true\"] { border: 2px solid palette(highlight); }"
         "QLabel#dropZone { border: 2px dashed palette(mid); border-radius: 8px; padding: 16px; }"));
-    setAcceptDrops(role != PanelRole::Calibrated);
+    setAcceptDrops(true);
     setMinimumWidth(300);
 
     auto* layout = new QVBoxLayout(this);
@@ -124,6 +152,7 @@ ImagePanel::ImagePanel(PanelRole role, QWidget* parent)
     accent->setStyleSheet(QStringLiteral("background: %1; border-radius: 2px;").arg(accentFor(role).name()));
     layout->addWidget(accent);
 
+    // Title row: Title [● Auto calibration off]  ...  [Single frame|Mean] [Load…]
     auto* header = new QHBoxLayout;
     m_title = new QLabel(titleFor(role), this);
     QFont tf = m_title->font();
@@ -131,27 +160,80 @@ ImagePanel::ImagePanel(PanelRole role, QWidget* parent)
     tf.setPointSizeF(tf.pointSizeF() + 2);
     m_title->setFont(tf);
     header->addWidget(m_title);
+    if (role == PanelRole::Calibrated) {
+        m_autoOffButton = new QToolButton(this);
+        m_autoOffButton->setObjectName(QStringLiteral("autoCalibrationOff"));
+        m_autoOffButton->setText(tr("Auto calibration off"));
+        m_autoOffButton->setIcon(redDotIcon());
+        m_autoOffButton->setIconSize(QSize(10, 10));
+        m_autoOffButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        m_autoOffButton->setAutoRaise(true);
+        m_autoOffButton->setCursor(Qt::PointingHandCursor);
+        m_autoOffButton->setStyleSheet(QStringLiteral("QToolButton { color: #C62828; font-weight: bold; }"));
+        m_autoOffButton->setToolTip(tr("This panel shows an image loaded from a file, so it is not calculated from\n"
+                                       "the light and dark frames.\n\n"
+                                       "Click to remove the loaded image and turn automatic calibration\n"
+                                       "(light image − dark image) back on."));
+        connect(m_autoOffButton, &QToolButton::clicked, this, &ImagePanel::autoCalibrationRequested);
+        m_autoOffButton->setVisible(false);
+        header->addWidget(m_autoOffButton);
+    }
     header->addStretch(1);
+    if (role != PanelRole::Calibrated) {
+        // Single frame / Mean toggle: two buttons that work as one switch.
+        auto makeModeButton = [this](const QString& text, const QString& tip) {
+            auto* b = new QToolButton(this);
+            b->setText(text);
+            b->setToolTip(tip);
+            b->setCheckable(true);
+            b->setToolButtonStyle(Qt::ToolButtonTextOnly);
+            return b;
+        };
+        const QString stack = role == PanelRole::Light ? QStringLiteral("light") : QStringLiteral("dark");
+        m_singleButton = makeModeButton(tr("Single frame"),
+                                        tr("Show one frame of the stack: %1(:, :, k).\nChoose the frame below the image.")
+                                            .arg(stack));
+        m_meanButton = makeModeButton(tr("Mean"),
+                                      tr("Show the pixel-by-pixel mean over all frames: mean(%1, 3)").arg(stack));
+        m_modeGroup = new QButtonGroup(this);
+        m_modeGroup->setExclusive(true);
+        m_modeGroup->addButton(m_singleButton);
+        m_modeGroup->addButton(m_meanButton);
+        m_mode = role == PanelRole::Dark ? FrameMode::Mean : FrameMode::Single;
+        m_singleButton->setChecked(m_mode == FrameMode::Single);
+        m_meanButton->setChecked(m_mode == FrameMode::Mean);
+        connect(m_singleButton, &QToolButton::toggled, this, [this](bool on) {
+            if (on)
+                setFrameMode(FrameMode::Single);
+        });
+        connect(m_meanButton, &QToolButton::toggled, this, [this](bool on) {
+            if (on)
+                setFrameMode(FrameMode::Mean);
+        });
+        auto* modeBox = new QHBoxLayout;
+        modeBox->setSpacing(0);
+        modeBox->addWidget(m_singleButton);
+        modeBox->addWidget(m_meanButton);
+        header->addLayout(modeBox);
+        header->addSpacing(6);
+    }
     m_loadButton = new QToolButton(this);
     m_loadButton->setText(tr("Load…"));
     m_loadButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
-    m_loadButton->setToolTip(tr("Open a .mat file (or drop one onto this panel)"));
+    m_loadButton->setToolTip(
+        role == PanelRole::Calibrated
+            ? tr("Open a calibrated image: a .mat, TIFF, PNG or JPG file (or drop one onto this panel).\n"
+                 "Automatic calibration then turns off.")
+            : tr("Open a .mat file, or one or more TIFF, PNG or JPG images\n(or drop them onto this panel)"));
     connect(m_loadButton, &QToolButton::clicked, this, &ImagePanel::loadRequested);
     header->addWidget(m_loadButton);
-    if (role == PanelRole::Calibrated) {
-        // Keep the space so the three images line up.
-        QSizePolicy sp = m_loadButton->sizePolicy();
-        sp.setRetainSizeWhenHidden(true);
-        m_loadButton->setSizePolicy(sp);
-        m_loadButton->setVisible(false);
-    }
     layout->addLayout(header);
 
     m_source = new QLabel(this);
     m_source->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     m_source->setTextInteractionFlags(Qt::TextSelectableByMouse);
     mute(m_source);
-    m_source->setText(role == PanelRole::Calibrated ? tr("Light frame − mean dark frame") : tr("No file loaded"));
+    m_source->setText(role == PanelRole::Calibrated ? tr("Light image − dark image") : tr("No file loaded"));
     layout->addWidget(m_source);
 
     // Image area: placeholder or view.
@@ -167,11 +249,12 @@ ImagePanel::ImagePanel(PanelRole role, QWidget* parent)
     m_stack->setMinimumHeight(200);
     layout->addWidget(m_stack, 1);
 
-    // Frame selector (light frames only): Frame [◀] ----slider---- [▶] [ n ] of N
+    // Frame selector: Frame [◀] ----slider---- [▶] [ n ] of N
     m_frameBar = new QWidget(this);
     auto* fb = new QHBoxLayout(m_frameBar);
     fb->setContentsMargins(0, 0, 0, 0);
-    fb->addWidget(new QLabel(tr("Frame"), m_frameBar));
+    m_frameLabel = new QLabel(tr("Frame"), m_frameBar);
+    fb->addWidget(m_frameLabel);
     auto makeArrow = [this](Qt::ArrowType arrow, const QString& tip, int delta) {
         auto* b = new QToolButton(m_frameBar);
         b->setArrowType(arrow);
@@ -208,13 +291,13 @@ ImagePanel::ImagePanel(PanelRole role, QWidget* parent)
     connect(m_frameSlider, &QSlider::valueChanged, this, [this](int v) {
         const QSignalBlocker block(m_frameSpin);
         m_frameSpin->setValue(v);
-        updateFrameButtons();
+        updateFrameControls();
         emit currentFrameChanged(v - 1);
     });
     connect(m_frameSpin, qOverload<int>(&QSpinBox::valueChanged), this, [this](int v) {
         const QSignalBlocker block(m_frameSlider);
         m_frameSlider->setValue(v);
-        updateFrameButtons();
+        updateFrameControls();
         emit currentFrameChanged(v - 1);
     });
 
@@ -258,8 +341,9 @@ ImagePanel::ImagePanel(PanelRole role, QWidget* parent)
     stats->setContentsMargins(0, 2, 0, 0);
     stats->setHorizontalSpacing(20);
     stats->setVerticalSpacing(0);
-    auto addStat = [&](int column, const QString& caption, QLabel*& value, const QString& tip) {
+    auto addStat = [&](int column, const QString& caption, QLabel*& captionLabel, QLabel*& value) {
         auto* c = new QLabel(caption, this);
+        captionLabel = c;
         QFont cf = c->font();
         cf.setPointSizeF(std::max(7.0, cf.pointSizeF() - 1.0));
         c->setFont(cf);
@@ -270,20 +354,13 @@ ImagePanel::ImagePanel(PanelRole role, QWidget* parent)
         vf.setPointSizeF(vf.pointSizeF() + 1);
         value->setFont(vf);
         value->setTextInteractionFlags(Qt::TextSelectableByMouse);
-        c->setToolTip(tip);
-        value->setToolTip(tip);
         stats->addWidget(c, 0, column);
         stats->addWidget(value, 1, column);
     };
-    const QString shown = role == PanelRole::Light ? QStringLiteral("light(:, :, k)")
-                        : role == PanelRole::Dark  ? QStringLiteral("mean(dark, 3)")
-                                                   : QStringLiteral("light(:, :, k) − mean(dark, 3)");
-    addStat(0, tr("Mean [DN]"), m_meanValue,
-            tr("Mean of the image on display, %1\n\ncalculateImageStats: mean(double(img), \"all\")").arg(shown));
-    addStat(1, tr("Std [DN]"), m_stdValue,
-            tr("Standard deviation over all pixels of the image on display, %1,\nnormalised by N\n\n"
-               "calculateImageStats: std(double(img), 1, \"all\")").arg(shown));
-    addStat(2, tr("Noise [DN]"), m_noiseValue, QString());
+    QLabel* noiseCaption = nullptr;
+    addStat(0, tr("Mean [DN]"), m_meanCaption, m_meanValue);
+    addStat(1, tr("Std [DN]"), m_stdCaption, m_stdValue);
+    addStat(2, tr("Noise [DN]"), noiseCaption, m_noiseValue);
     stats->setColumnStretch(3, 1);
     layout->addLayout(stats);
 
@@ -304,13 +381,11 @@ ImagePanel::ImagePanel(PanelRole role, QWidget* parent)
     ex->addStretch(1);
     m_saveMatButton = new QToolButton(this);
     m_saveMatButton->setText(tr("Data (.mat)"));
-    if (role == PanelRole::Dark) {
-        m_saveMatButton->setToolTip(tr("Save the mean dark frame (raw values, double) with Mean, Std and Noise to a .mat file"));
-        connect(m_saveMatButton, &QToolButton::clicked, this, [this] { emit exportRequested(ExportKind::FrameMat); });
-    } else {
-        m_saveMatButton->setToolTip(tr("Save raw values (double) with Mean, Std and Noise to a .mat file"));
+    m_saveMatButton->setToolTip(tr("Save raw values to a .mat file: the image on display (double) with Mean, Std and\n"
+                                   "Noise, or all frames of the stack behind this panel"));
+    {
         auto* menu = new QMenu(m_saveMatButton);
-        menu->addAction(tr("This frame…"), this, [this] { emit exportRequested(ExportKind::FrameMat); });
+        menu->addAction(tr("Image on display…"), this, [this] { emit exportRequested(ExportKind::FrameMat); });
         menu->addAction(tr("All frames…"), this, [this] { emit exportRequested(ExportKind::StackMat); });
         m_saveMatButton->setMenu(menu);
         m_saveMatButton->setPopupMode(QToolButton::InstantPopup);
@@ -334,10 +409,19 @@ ImagePanel::ImagePanel(PanelRole role, QWidget* parent)
     connect(m_view, &ImageView::hoveredPixel, this, &ImagePanel::showPixel);
     connect(m_view, &ImageView::contextMenuRequested, this, &ImagePanel::showContextMenu);
 
+    updateStatTooltips();
+    updateFrameControls();
     showPlaceholder(m_defaultPlaceholder);
 }
 
 QString ImagePanel::title() const { return m_title->text(); }
+
+QSize ImagePanel::sizeHint() const
+{
+    QSize s = QFrame::sizeHint();
+    s.setWidth(std::max(520, minimumSizeHint().width()));
+    return s;
+}
 QString ImagePanel::sourceInfo() const { return m_source->text(); }
 
 void ImagePanel::setImage(const Image2D& image, bool resetContrast)
@@ -426,8 +510,9 @@ void ImagePanel::setSourceInfo(const QString& text, const QString& tooltip)
 
 void ImagePanel::setFrameCount(int count)
 {
-    m_frameBar->setVisible(count > 0);
-    const int n = std::max(1, count);
+    m_frameCount = std::max(0, count);
+    m_frameBar->setVisible(m_frameCount > 0);
+    const int n = std::max(1, m_frameCount);
     {
         const QSignalBlocker b1(m_frameSlider);
         const QSignalBlocker b2(m_frameSpin);
@@ -436,10 +521,73 @@ void ImagePanel::setFrameCount(int count)
         m_frameSlider->setValue(1);
         m_frameSpin->setValue(1);
     }
-    m_frameSlider->setEnabled(n > 1);
-    m_frameSpin->setEnabled(n > 1);
     m_frameTotal->setText(tr("of %1").arg(n));
-    updateFrameButtons();
+    updateFrameControls();
+}
+
+void ImagePanel::setFrameMode(FrameMode mode)
+{
+    if (m_role == PanelRole::Calibrated || mode == m_mode)
+        return;
+    m_mode = mode;
+    {
+        const QSignalBlocker b1(m_singleButton);
+        const QSignalBlocker b2(m_meanButton);
+        m_singleButton->setChecked(mode == FrameMode::Single);
+        m_meanButton->setChecked(mode == FrameMode::Mean);
+    }
+    updateFrameControls();
+    updateStatTooltips();
+    emit frameModeChanged(mode);
+}
+
+void ImagePanel::setAutoCalibrationOff(bool off)
+{
+    m_autoOff = off;
+    if (m_autoOffButton)
+        m_autoOffButton->setVisible(off);
+    updateStatTooltips();
+}
+
+void ImagePanel::updateFrameControls()
+{
+    // In Mean mode the selector stays visible (so the images in the three
+    // panels keep lining up) but is disabled.
+    const bool single = m_mode == FrameMode::Single;
+    const int v = m_frameSpin->value();
+    m_frameLabel->setEnabled(single);
+    m_frameSlider->setEnabled(single && m_frameCount > 1);
+    m_frameSpin->setEnabled(single && m_frameCount > 1);
+    m_prevButton->setEnabled(single && v > m_frameSpin->minimum());
+    m_nextButton->setEnabled(single && v < m_frameSpin->maximum());
+    m_frameBar->setToolTip(single ? QString() : tr("Mean mode shows the mean over all frames.\n"
+                                                   "Switch to Single frame to choose one frame."));
+}
+
+void ImagePanel::updateStatTooltips()
+{
+    QString shown;
+    switch (m_role) {
+    case PanelRole::Light:
+        shown = m_mode == FrameMode::Mean ? QStringLiteral("mean(light, 3)") : QStringLiteral("light(:, :, k)");
+        break;
+    case PanelRole::Dark:
+        shown = m_mode == FrameMode::Mean ? QStringLiteral("mean(dark, 3)") : QStringLiteral("dark(:, :, k)");
+        break;
+    case PanelRole::Calibrated:
+        shown = m_autoOff ? tr("the calibrated image loaded from the file")
+                          : tr("light image − dark image (the images on display)");
+        break;
+    }
+    const QString meanTip =
+        tr("Mean of the image on display, %1\n\ncalculateImageStats: mean(double(img), \"all\")").arg(shown);
+    const QString stdTip = tr("Standard deviation over all pixels of the image on display, %1,\nnormalised by N\n\n"
+                              "calculateImageStats: std(double(img), 1, \"all\")")
+                               .arg(shown);
+    m_meanCaption->setToolTip(meanTip);
+    m_meanValue->setToolTip(meanTip);
+    m_stdCaption->setToolTip(stdTip);
+    m_stdValue->setToolTip(stdTip);
 }
 
 int ImagePanel::currentFrame() const
@@ -454,15 +602,8 @@ void ImagePanel::setCurrentFrame(int index)
 
 void ImagePanel::stepFrame(int delta)
 {
-    if (m_frameBar->isVisible())
+    if (m_frameCount > 0 && m_mode == FrameMode::Single)
         m_frameSpin->setValue(m_frameSpin->value() + delta);  // clamped to the range
-}
-
-void ImagePanel::updateFrameButtons()
-{
-    const int v = m_frameSpin->value();
-    m_prevButton->setEnabled(v > m_frameSpin->minimum());
-    m_nextButton->setEnabled(v < m_frameSpin->maximum());
 }
 
 void ImagePanel::setDisplayRange(double low, double high)
@@ -582,18 +723,26 @@ void ImagePanel::setNoise(double noise, int frameCount)
     case PanelRole::Light:
         tip = tr("Temporal noise of all %1 light frames\n\n"
                  "calculateImageNoise(light):\nsqrt(mean(var(double(light), 1, 3), \"all\"))\n\n"
-                 "It does not change when you pick another frame.");
+                 "It describes the whole stack, so it does not change with the\n"
+                 "frame on display or with Single frame / Mean.");
         break;
     case PanelRole::Dark:
         tip = tr("Temporal noise of all %1 dark frames\n\n"
-                 "calculateImageNoise(dark):\nsqrt(mean(var(double(dark), 1, 3), \"all\"))");
+                 "calculateImageNoise(dark):\nsqrt(mean(var(double(dark), 1, 3), \"all\"))\n\n"
+                 "It describes the whole stack, so it does not change with the\n"
+                 "frame on display or with Single frame / Mean.");
         break;
     case PanelRole::Calibrated:
-        tip = tr("Temporal noise of the %1 calibrated frames light(:, :, k) − mean(dark, 3)\n\n"
-                 "calculateImageNoise(light − mean(dark, 3)):\n"
-                 "sqrt(mean(var(light − mean(dark, 3), 1, 3), \"all\"))\n\n"
-                 "Subtracting the same dark frame from every light frame does not change\n"
-                 "the temporal variance, so this equals the light-frame noise.");
+        if (m_autoOff)
+            tip = tr("Temporal noise of the %1 frames loaded from the file\n\n"
+                     "calculateImageNoise(calibrated):\nsqrt(mean(var(double(calibrated), 1, 3), \"all\"))");
+        else
+            tip = tr("Temporal noise of the %1 calibrated frames light(:, :, k) − D, where D is the\n"
+                     "dark image on display (mean(dark, 3) or one dark frame)\n\n"
+                     "calculateImageNoise(light − D):\n"
+                     "sqrt(mean(var(light − D, 1, 3), \"all\"))\n\n"
+                     "Subtracting the same image D from every light frame does not change\n"
+                     "the temporal variance, so this equals the light-frame noise.");
         break;
     }
     m_noiseValue->setToolTip(tip.arg(frameCount));
@@ -756,12 +905,8 @@ void ImagePanel::showContextMenu(const QPoint& globalPos)
     menu.addAction(tr("Copy image with histogram and statistics"), this, &ImagePanel::copyReportToClipboard);
     menu.addSeparator();
     menu.addAction(tr("Save image as PNG…"), this, [this] { emit exportRequested(ExportKind::ImagePng); });
-    if (m_role == PanelRole::Dark) {
-        menu.addAction(tr("Save mean dark frame as .mat…"), this, [this] { emit exportRequested(ExportKind::FrameMat); });
-    } else {
-        menu.addAction(tr("Save this frame as .mat…"), this, [this] { emit exportRequested(ExportKind::FrameMat); });
-        menu.addAction(tr("Save all frames as .mat…"), this, [this] { emit exportRequested(ExportKind::StackMat); });
-    }
+    menu.addAction(tr("Save image on display as .mat…"), this, [this] { emit exportRequested(ExportKind::FrameMat); });
+    menu.addAction(tr("Save all frames as .mat…"), this, [this] { emit exportRequested(ExportKind::StackMat); });
     menu.addSeparator();
     menu.addAction(tr("Fit to window"), m_view, &ImageView::fitToWindowByUser);
 
@@ -775,19 +920,24 @@ void ImagePanel::showContextMenu(const QPoint& globalPos)
 // Drag and drop
 // ---------------------------------------------------------------------------
 
-QString ImagePanel::matPathFrom(const QMimeData* mime)
+QStringList ImagePanel::droppedPaths(const QMimeData* mime, QString* error) const
 {
     if (!mime || !mime->hasUrls())
         return {};
-    const QList<QUrl> urls = mime->urls();
-    for (const QUrl& url : urls) {
-        if (!url.isLocalFile())
-            continue;
-        const QString path = url.toLocalFile();
-        if (path.endsWith(QLatin1String(".mat"), Qt::CaseInsensitive))
-            return path;
+    QStringList local;
+    for (const QUrl& url : mime->urls())
+        if (url.isLocalFile())
+            local << url.toLocalFile();
+    if (local.isEmpty())
+        return {};
+    // Several files only for images, and only in the light and dark panels.
+    const FileSelection selection = selectFiles(local, m_role != PanelRole::Calibrated);
+    if (!selection.ok()) {
+        if (error)
+            *error = selection.error;
+        return {};
     }
-    return {};
+    return selection.files;
 }
 
 void ImagePanel::setDropHighlight(bool on)
@@ -800,11 +950,14 @@ void ImagePanel::setDropHighlight(bool on)
 
 void ImagePanel::dragEnterEvent(QDragEnterEvent* event)
 {
-    if (m_role != PanelRole::Calibrated && !matPathFrom(event->mimeData()).isEmpty()) {
+    QString error;
+    if (!droppedPaths(event->mimeData(), &error).isEmpty()) {
         event->acceptProposedAction();
         setDropHighlight(true);
         return;
     }
+    if (!error.isEmpty())
+        emit message(error);  // say why the drop is refused
     event->ignore();
 }
 
@@ -817,13 +970,16 @@ void ImagePanel::dragLeaveEvent(QDragLeaveEvent* event)
 void ImagePanel::dropEvent(QDropEvent* event)
 {
     setDropHighlight(false);
-    const QString path = matPathFrom(event->mimeData());
-    if (path.isEmpty()) {
+    QString error;
+    const QStringList paths = droppedPaths(event->mimeData(), &error);
+    if (paths.isEmpty()) {
+        if (!error.isEmpty())
+            emit message(error);
         event->ignore();
         return;
     }
     event->acceptProposedAction();
-    emit fileDropped(path);
+    emit filesDropped(paths);
 }
 
 } // namespace iat

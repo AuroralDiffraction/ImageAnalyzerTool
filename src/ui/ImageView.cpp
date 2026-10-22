@@ -103,11 +103,22 @@ void ImageView::setViewState(const ViewState& state)
         fitToWindow();
         return;
     }
-    const double zoom = std::clamp(state.zoom, kMinZoom, kMaxZoom);
+    const double zoom = std::clamp(state.zoom, kMinZoom, maxZoom());
     setTransform(QTransform::fromScale(zoom, zoom));
     centerOn(state.center);
     m_fitMode = false;
     updateSmoothing();
+}
+
+double ImageView::maxZoom() const
+{
+    // Normally 64 screen pixels per image pixel. A very small image can
+    // already be larger than that when fitted, so allow 4 × the fit zoom.
+    if (!hasImage())
+        return kMaxZoom;
+    const double fit = std::min(viewport()->width() / double(m_imageSize.width()),
+                                viewport()->height() / double(m_imageSize.height()));
+    return std::max(kMaxZoom, 4.0 * fit);
 }
 
 void ImageView::fitToWindow()
@@ -151,8 +162,9 @@ void ImageView::wheelEvent(QWheelEvent* event)
         const double steps = event->angleDelta().y() / 120.0;
         double factor = std::pow(1.25, steps);
         const double zoom = transform().m11();
+        const double maxZ = std::max(maxZoom(), zoom);  // zooming in never shrinks the image
         if (zoom * factor < kMinZoom) factor = kMinZoom / zoom;
-        if (zoom * factor > kMaxZoom) factor = kMaxZoom / zoom;
+        if (zoom * factor > maxZ) factor = maxZ / zoom;
         scale(factor, factor);
         m_fitMode = false;
         updateSmoothing();

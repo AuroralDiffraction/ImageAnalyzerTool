@@ -24,14 +24,23 @@ int main(int argc, char* argv[])
     parser.setApplicationDescription(QStringLiteral(IAT_DESCRIPTION));
     parser.addHelpOption();
     parser.addVersionOption();
-    const QCommandLineOption lightOption({QStringLiteral("l"), QStringLiteral("light")},
-                                         QStringLiteral("Light frames .mat file to open in the first tab."),
-                                         QStringLiteral("file"));
-    const QCommandLineOption darkOption({QStringLiteral("d"), QStringLiteral("dark")},
-                                        QStringLiteral("Dark frames .mat file to open in the first tab."),
-                                        QStringLiteral("file"));
+    const QCommandLineOption lightOption(
+        {QStringLiteral("l"), QStringLiteral("light")},
+        QStringLiteral("Light frames to open in the first tab: a .mat file, or an image file "
+                       "(repeat the option for several images)."),
+        QStringLiteral("file"));
+    const QCommandLineOption darkOption(
+        {QStringLiteral("d"), QStringLiteral("dark")},
+        QStringLiteral("Dark frames to open in the first tab: a .mat file, or an image file "
+                       "(repeat the option for several images)."),
+        QStringLiteral("file"));
+    const QCommandLineOption calibratedOption(
+        {QStringLiteral("c"), QStringLiteral("calibrated")},
+        QStringLiteral("Calibrated image to show in the first tab (turns automatic calibration off)."),
+        QStringLiteral("file"));
     parser.addOption(lightOption);
     parser.addOption(darkOption);
+    parser.addOption(calibratedOption);
     parser.process(app);
 
     iat::MainWindow window;
@@ -39,9 +48,11 @@ int main(int argc, char* argv[])
 
     if (iat::SessionTab* tab = window.currentTab()) {
         if (parser.isSet(lightOption))
-            tab->loadLight(parser.value(lightOption));
+            tab->loadLight(parser.values(lightOption));
         if (parser.isSet(darkOption))
-            tab->loadDark(parser.value(darkOption));
+            tab->loadDark(parser.values(darkOption));
+        if (parser.isSet(calibratedOption))
+            tab->loadCalibrated(parser.value(calibratedOption));
     }
 
     return app.exec();

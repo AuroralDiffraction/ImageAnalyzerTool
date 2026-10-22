@@ -1,6 +1,8 @@
 // UI smoke test: opens the main window, loads light and dark frames into the
 // first tab, waits for loading to finish and checks the results, the frame
-// buttons, linked zoom/pan, the clipboard copies and the exports.
+// buttons, linked zoom/pan, the clipboard copies and the exports. With the
+// small test files it also checks the Single frame / Mean modes, loading
+// several image files, and a calibrated image loaded from a file.
 //
 //   ui_smoke                                  uses the small test files
 //   ui_smoke light.mat dark.mat [shot.png] [frame]
@@ -22,12 +24,15 @@
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QElapsedTimer>
+#include <QFileInfo>
 #include <QIcon>
 #include <QLabel>
 #include <QMimeData>
 #include <QPixmap>
 #include <QScrollBar>
+#include <QStatusBar>
 #include <QTemporaryDir>
+#include <QToolButton>
 #include <QUrl>
 #include <QWheelEvent>
 
@@ -78,6 +83,33 @@ static double scalar(const MatFileContents& c, const char* name)
     return v.supported ? v.data.frame(0).at(0, 0) : std::nan("");
 }
 
+// Simulates dragging files onto a panel and dropping them. Returns whether
+// the panel accepted the drag.
+static bool dropFiles(ImagePanel* target, const QStringList& paths, bool drop = true)
+{
+    QMimeData mime;
+    QList<QUrl> urls;
+    for (const QString& p : paths)
+        urls << QUrl::fromLocalFile(p);
+    mime.setUrls(urls);
+    const QPoint c = target->rect().center();
+    QDragEnterEvent enter(c, Qt::CopyAction, &mime, Qt::LeftButton, Qt::NoModifier);
+    QCoreApplication::sendEvent(target, &enter);
+    const bool accepted = enter.isAccepted();
+    if (accepted && drop) {
+        QDropEvent dropEvent(QPointF(c), Qt::CopyAction, &mime, Qt::LeftButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(target, &dropEvent);
+    }
+    return accepted;
+}
+
+// Length of a 1 × N char variable (its text is not loaded by the reader).
+static qint64 textLength(const MatFileContents& c, const char* name)
+{
+    const MatVariable v = variable(c, name);
+    return v.matlabClass == QLatin1String("char") && v.dims.size() == 2 ? v.dims.at(1) : -1;
+}
+
 static bool sameImage(const Image2D& a, const Image2D& b)
 {
     if (!a.sameSize(b))
@@ -98,9 +130,12 @@ int main(int argc, char* argv[])
     QApplication::setWindowIcon(icon);
 
     const QStringList args = app.arguments();
-    const bool useFixtures = args.size() < 3;
-    const QString light = useFixtures ? QStringLiteral(IAT_TEST_DATA_DIR "/light_small.mat") : args.at(1);
-    const QString dark = useFixtures ? QStringLiteral(IAT_TEST_DATA_DIR "/dark_small.mat") : args.at(2);
+    const QString fixtureLight = QStringLiteral(IAT_TEST_DATA_DIR "/light_small.mat");
+    const QString fixtureDark = QStringLiteral(IAT_TEST_DATA_DIR "/dark_small.mat");
+    const QString light = args.size() < 3 ? fixtureLight : args.at(1);
+    const QString dark = args.size() < 3 ? fixtureDark : args.at(2);
+    // The checks against known values run whenever the test files are used.
+    const bool useFixtures = QFileInfo(light) == QFileInfo(fixtureLight) && QFileInfo(dark) == QFileInfo(fixtureDark);
     const QString shot = args.size() > 3 ? args.at(3) : QString();
     const int frame = args.size() > 4 ? args.at(4).toInt() : 1;
 
@@ -252,24 +287,146 @@ int main(int argc, char* argv[])
     waitUntilIdle(w, 1000);
     check(!second->lightPanel()->hasImage() && w.currentTab() == second, "new tab starts empty");
     {
-        QMimeData dropMime;
-        dropMime.setUrls({QUrl::fromLocalFile(light)});
-        ImagePanel* target = second->lightPanel();
-        const QPoint c = target->rect().center();
-        QDragEnterEvent enter(c, Qt::CopyAction, &dropMime, Qt::LeftButton, Qt::NoModifier);
-        QCoreApplication::sendEvent(target, &enter);
-        const bool accepted = enter.isAccepted();
-        QDropEvent drop(QPointF(c), Qt::CopyAction, &dropMime, Qt::LeftButton, Qt::NoModifier);
-        QCoreApplication::sendEvent(target, &drop);
+        const bool accepted = dropFiles(second->lightPanel(), {light});
         waitUntilIdle(w, 120000);
         check(accepted && second->lightPanel()->hasImage() && !second->calibratedPanel()->hasImage(),
               "dropping a .mat file onto Light frames loads it");
-        QDragEnterEvent enterCal(c, Qt::CopyAction, &dropMime, Qt::LeftButton, Qt::NoModifier);
-        QCoreApplication::sendEvent(second->calibratedPanel(), &enterCal);
-        check(!enterCal.isAccepted(), "Calibrated frames does not accept drops");
+        check(!dropFiles(second->lightPanel(), {light, dark}, false), "two .mat files at once are refused");
+        check(dropFiles(second->calibratedPanel(), {light}, false), "Calibrated frames accepts one dropped file");
     }
     w.closeTab(1);
     waitUntilIdle(w, 1000);
+
+    if (useFixtures) {
+        const auto fixture = [](const char* name) { return QStringLiteral(IAT_TEST_DATA_DIR "/") + QLatin1String(name); };
+        const ImageStack lightMat = MatFileReader::read(light).imageStacks().first().data;
+        const ImageStack darkMat = MatFileReader::read(dark).imageStacks().first().data;
+
+        // ---- Single frame / Mean
+        std::printf("single frame / mean\n");
+        check(lp->frameMode() == FrameMode::Single && dp->frameMode() == FrameMode::Mean,
+              "defaults: light Single frame, dark Mean");
+        check(lp->frameCount() == 4 && dp->frameCount() == 3, "light and dark panels both have a frame selector");
+        lp->setCurrentFrame(1);
+        dp->setFrameMode(FrameMode::Single);
+        dp->setCurrentFrame(2);
+        waitUntilIdle(w, 5000);
+        check(near(dp->meanStd().mean, 24.25) && sameImage(dp->image(), darkMat.frame(2)),
+              "dark Single frame shows dark(:, :, 3)");
+        check(sameImage(cp->image(), processing::subtract(lightMat.frame(1), darkMat.frame(2)))
+                  && near(cp->meanStd().mean, 1261.75),
+              "both single: calibrated = light frame 2 - dark frame 3");
+        check(cp->sourceInfo().contains(QLatin1String("dark frame 3 of 3")), "calibrated source line names the dark frame");
+        check(near(cp->noise(), 1.118033988750) && near(dp->noise(), 8.164965809277),
+              "noise values unchanged (whole stacks)");
+        lp->setFrameMode(FrameMode::Mean);
+        waitUntilIdle(w, 5000);
+        check(near(lp->meanStd().mean, 1286.5) && sameImage(lp->image(), processing::meanOverFrames(lightMat))
+                  && lp->sourceInfo().contains(QLatin1String("mean of 4 frames")),
+              "light Mean shows mean(light, 3)");
+        check(sameImage(cp->image(), processing::subtract(processing::meanOverFrames(lightMat), darkMat.frame(2))),
+              "calibrated = mean light - dark frame 3");
+        lp->stepFrame(+1);
+        check(lp->currentFrame() == 1, "frame buttons do nothing in Mean mode");
+
+        tab->exportTo(lp, ExportKind::FrameMat, out("light_mean.mat"));
+        tab->exportTo(dp, ExportKind::FrameMat, out("dark_frame.mat"));
+        tab->exportTo(dp, ExportKind::StackMat, out("dark_all.mat"));
+        tab->exportTo(cp, ExportKind::FrameMat, out("calibrated_modes.mat"));
+        check(waitUntilIdle(w, 60000), "exports finished");
+        const MatFileContents lm = MatFileReader::read(out("light_mean.mat"));
+        check(lm.ok() && sameImage(variable(lm, "light_mean").data.frame(0), lp->image())
+                  && scalar(lm, "light_frame_count") == 4.0,
+              "light_mean.mat: mean image + frame count");
+        const MatFileContents df = MatFileReader::read(out("dark_frame.mat"));
+        check(df.ok() && sameImage(variable(df, "dark_frame").data.frame(0), darkMat.frame(2))
+                  && scalar(df, "frame_index") == 3.0 && scalar(df, "dark_frame_count") == 3.0,
+              "dark_frame.mat: dark frame 3 + index");
+        const MatFileContents da = MatFileReader::read(out("dark_all.mat"));
+        check(da.ok() && variable(da, "dark").data.rawData() == darkMat.rawData(), "dark_all.mat: identical to the input");
+        const MatFileContents cm = MatFileReader::read(out("calibrated_modes.mat"));
+        check(cm.ok() && sameImage(variable(cm, "calibrated_frame").data.frame(0), cp->image())
+                  && textLength(cm, "calibration") == qint64(QByteArray("mean(light, 3) - dark(:, :, 3)").size())
+                  && scalar(cm, "dark_frame_index") == 3.0 && scalar(cm, "light_frame_count") == 4.0,
+              "calibrated .mat: image + formula + frame numbers");
+        lp->setFrameMode(FrameMode::Single);
+        dp->setFrameMode(FrameMode::Mean);
+        waitUntilIdle(w, 5000);
+        check(near(cp->meanStd().mean, 1271.75), "back to light frame 2 - mean dark");
+
+        // ---- several image files
+        std::printf("image files\n");
+        SessionTab* imgTab = w.newTab();
+        ImagePanel* ilp = imgTab->lightPanel();
+        ImagePanel* idp = imgTab->darkPanel();
+        ImagePanel* icp = imgTab->calibratedPanel();
+        const QStringList pngs{fixture("light_png/light_4.png"), fixture("light_png/light_2.png"),
+                               fixture("light_png/light_3.png"), fixture("light_png/light_1.png")};
+        const QStringList tiffs{fixture("dark_tiff/dark_10.tif"), fixture("dark_tiff/dark_1.tif"),
+                                fixture("dark_tiff/dark_2.tif")};
+        check(!dropFiles(ilp, {pngs.first(), light}, false), ".mat and images together are refused");
+        check(!dropFiles(icp, {pngs.at(0), pngs.at(1)}, false), "several images onto Calibrated frames are refused");
+        const bool okLight = dropFiles(ilp, pngs);
+        const bool okDark = dropFiles(idp, tiffs);
+        waitUntilIdle(w, 60000);
+        check(okLight && ilp->frameCount() == 4 && ilp->sourceInfo().contains(QLatin1String("4 PNG files")),
+              "4 PNG files dropped onto Light frames: 4 frames");
+        check(okDark && idp->frameCount() == 3 && near(idp->meanStd().mean, 14.25) && near(idp->noise(), 8.164965809277),
+              "3 TIFF files dropped onto Dark frames: mean and noise as dark_small.mat");
+        check(near(ilp->meanStd().mean, 1285.0) && near(ilp->noise(), 1.118033988750)
+                  && near(icp->meanStd().mean, 1270.75) && near(icp->noise(), 1.118033988750),
+              "same results as the .mat files (frames in natural order)");
+        ilp->setFrameMode(FrameMode::Mean);
+        waitUntilIdle(w, 5000);
+        check(near(ilp->meanStd().mean, 1286.5) && near(icp->meanStd().mean, 1286.5 - 14.25),
+              "Mean of the PNG files");
+        w.closeTab(1);  // the image tab
+        waitUntilIdle(w, 1000);
+
+        // ---- calibrated image loaded from a file
+        std::printf("calibrated image from a file\n");
+        auto* indicator = cp->findChild<QToolButton*>(QStringLiteral("autoCalibrationOff"));
+        check(indicator && !indicator->isVisible() && tab->isAutoCalibration(), "automatic calibration is on at first");
+        const bool okCal = dropFiles(cp, {fixture("light_png/light_3.png")});
+        waitUntilIdle(w, 60000);
+        check(okCal && !tab->isAutoCalibration() && cp->isAutoCalibrationOff() && indicator->isVisible(),
+              "dropping an image onto Calibrated frames turns auto calibration off (red indicator)");
+        check(sameImage(cp->image(), lightMat.frame(2)), "the calibrated panel shows the loaded image");
+        if (!shot.isEmpty()) {
+            QString manualShot = shot;
+            manualShot.replace(QLatin1String(".png"), QLatin1String("_manual.png"));
+            w.grab().save(manualShot);
+        }
+        lp->setCurrentFrame(3);
+        dp->setFrameMode(FrameMode::Single);
+        waitUntilIdle(w, 5000);
+        check(sameImage(cp->image(), lightMat.frame(2)), "light and dark changes leave it alone");
+        tab->exportTo(cp, ExportKind::FrameMat, out("calibrated_loaded.mat"));
+        waitUntilIdle(w, 60000);
+        const MatFileContents cl = MatFileReader::read(out("calibrated_loaded.mat"));
+        check(cl.ok() && sameImage(variable(cl, "calibrated_frame").data.frame(0), lightMat.frame(2))
+                  && textLength(cl, "source_file") > 0 && variable(cl, "light_file").name.isEmpty(),
+              "export: the loaded image and its file name");
+        indicator->click();
+        waitUntilIdle(w, 5000);
+        check(tab->isAutoCalibration() && !cp->isAutoCalibrationOff() && !indicator->isVisible()
+                  && sameImage(cp->image(), processing::subtract(lightMat.frame(3), darkMat.frame(2)))
+                  && near(cp->noise(), 1.118033988750),
+              "clicking the red indicator: back to light frame 4 - dark frame 3");
+
+        tab->loadCalibrated(dark);  // a stack: the calibrated panel gets a frame selector
+        waitUntilIdle(w, 60000);
+        cp->stepFrame(+1);
+        waitUntilIdle(w, 5000);
+        check(!tab->isAutoCalibration() && cp->frameCount() == 3 && sameImage(cp->image(), darkMat.frame(1))
+                  && near(cp->noise(), 8.164965809277),
+              "a loaded .mat stack can be stepped through");
+        tab->restoreAutoCalibration();
+        dp->setFrameMode(FrameMode::Mean);
+        lp->setCurrentFrame(0);
+        waitUntilIdle(w, 5000);
+        check(cp->frameCount() == 0 && near(cp->meanStd().mean, 1270.75), "restored: light frame 1 - mean dark");
+    }
 
     // ---- icon and author / GitHub
     std::printf("icon and GitHub\n");
@@ -278,8 +435,10 @@ int main(int argc, char* argv[])
           "app icon loaded from resources (7 sizes)");
     check(AboutDialog::homepage() == url && AboutDialog::author() == QLatin1String("AuroralDiffraction (Tanatonium)"),
           "author and homepage from CMakeLists");
-    const QLabel* credit = w.findChild<QLabel*>(QStringLiteral("githubLink"));
-    check(credit && credit->text().contains(url) && credit->openExternalLinks(), "status bar shows a GitHub link");
+    bool statusLink = false;
+    for (const QLabel* l : w.statusBar()->findChildren<QLabel*>())
+        statusLink = statusLink || l->text().contains(QLatin1String("github"), Qt::CaseInsensitive);
+    check(!statusLink, "no GitHub link in the status bar");
     QImage aboutShot;
     {
         AboutDialog about(&w);
@@ -297,6 +456,7 @@ int main(int argc, char* argv[])
         aboutPath.replace(QLatin1String(".png"), QLatin1String("_about.png"));
         if (aboutShot.save(aboutPath))
             std::printf("about dialog: %s\n", qPrintable(aboutPath));
+        w.statusBar()->clearMessage();  // messages left by the checks above
         if (w.grab().save(shot))
             std::printf("screenshot: %s\n", qPrintable(shot));
         QString reportPath = shot;

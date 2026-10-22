@@ -7,7 +7,6 @@
 #include <QApplication>
 #include <QInputDialog>
 #include <QKeySequence>
-#include <QLabel>
 #include <QMenuBar>
 #include <QStatusBar>
 #include <QTabBar>
@@ -49,19 +48,8 @@ MainWindow::MainWindow(QWidget* parent)
 
     createMenus();
 
-    // Author credit with a link to the GitHub page, at the right of the status bar.
-    auto* credit = new QLabel(this);
-    credit->setObjectName(QStringLiteral("githubLink"));
-    credit->setTextFormat(Qt::RichText);
-    credit->setOpenExternalLinks(true);
-    credit->setTextInteractionFlags(Qt::TextBrowserInteraction);
-    credit->setText(QStringLiteral("<a href=\"%1\" style=\"text-decoration:none\">%2</a>")
-                        .arg(AboutDialog::homepage(), AboutDialog::author()));
-    credit->setToolTip(AboutDialog::homepage());
-    credit->setContentsMargins(0, 0, 8, 0);
-    statusBar()->addPermanentWidget(credit);
-
-    statusBar()->showMessage(tr("Drop .mat files onto the Light frames and Dark frames panels."));
+    statusBar()->showMessage(
+        tr("Drop a .mat file, or one or more TIFF, PNG or JPG images, onto the Light frames and Dark frames panels."));
     newTab();
 }
 
@@ -81,6 +69,9 @@ void MainWindow::createMenus()
         if (SessionTab* t = currentTab()) t->openDarkDialog();
     });
     openDark->setShortcut(QKeySequence(tr("Ctrl+D")));
+    file->addAction(tr("Open &calibrated image…"), this, [this] {
+        if (SessionTab* t = currentTab()) t->openCalibratedDialog();
+    });
 
     file->addSeparator();
     QAction* closeTabAction = file->addAction(tr("&Close tab"), this, [this] { closeTab(m_tabs->currentIndex()); });
