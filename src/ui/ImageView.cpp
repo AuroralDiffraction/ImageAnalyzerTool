@@ -42,6 +42,9 @@ ImageView::ImageView(QWidget* parent)
     setFrameShape(QFrame::NoFrame);
     setBackgroundBrush(QColor(38, 38, 40));
     setDragMode(QGraphicsView::ScrollHandDrag);
+    // ScrollHandDrag shows an open hand, which hides the pixel under it. A
+    // crosshair points at one pixel; the closed hand still shows while dragging.
+    viewport()->setCursor(Qt::CrossCursor);
     setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     setResizeAnchor(QGraphicsView::AnchorViewCenter);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -185,6 +188,12 @@ void ImageView::mouseMoveEvent(QMouseEvent* event)
         emit hoveredPixel(x, y);
     else
         emit hoveredPixel(-1, -1);
+}
+
+void ImageView::mouseReleaseEvent(QMouseEvent* event)
+{
+    QGraphicsView::mouseReleaseEvent(event);
+    viewport()->setCursor(Qt::CrossCursor);  // the base class puts the open hand back after a drag
 }
 
 void ImageView::mouseDoubleClickEvent(QMouseEvent* event)

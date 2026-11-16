@@ -18,6 +18,8 @@ struct ViewState {
 // Zoomable, pannable view of one image.
 //  - mouse wheel: zoom around the cursor
 //  - drag: pan
+//  - the cursor is a crosshair, so it is clear which pixel it points at
+//    (a closed hand while dragging)
 //  - double-click: fit the image to the view again
 //  - right-click: emits contextMenuRequested
 class ImageView : public QGraphicsView {
@@ -50,6 +52,7 @@ signals:
 protected:
     void wheelEvent(QWheelEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
     void leaveEvent(QEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;

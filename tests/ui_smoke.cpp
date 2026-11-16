@@ -221,6 +221,22 @@ int main(int argc, char* argv[])
             std::printf("single image mode: %s\n", qPrintable(singleShot));
     }
 
+    {
+        // The cursor over the image is a crosshair, also after a drag.
+        QWidget* vp = lp->view()->viewport();
+        const bool before = vp->cursor().shape() == Qt::CrossCursor;
+        const QPointF c = QPointF(vp->rect().center());
+        QMouseEvent press(QEvent::MouseButtonPress, c, vp->mapToGlobal(c), Qt::LeftButton, Qt::LeftButton,
+                          Qt::NoModifier);
+        QCoreApplication::sendEvent(vp, &press);
+        const bool dragging = vp->cursor().shape() == Qt::ClosedHandCursor;
+        QMouseEvent release(QEvent::MouseButtonRelease, c, vp->mapToGlobal(c), Qt::LeftButton, Qt::NoButton,
+                            Qt::NoModifier);
+        QCoreApplication::sendEvent(vp, &release);
+        check(before && dragging && vp->cursor().shape() == Qt::CrossCursor,
+              "crosshair cursor over the image (closed hand while dragging)");
+    }
+
     // Zoom in, then switch to three panels with the switch next to the tabs.
     for (int i = 0; i < 3; ++i) {
         const QPointF c = QPointF(lp->view()->viewport()->rect().center());

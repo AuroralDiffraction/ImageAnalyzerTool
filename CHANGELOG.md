@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1 (2026-11-16)
+
+- The mouse cursor over an image is a crosshair instead of a hand, so it is clear which pixel it points at. It still turns into a closed hand while you drag to pan.
+
 ## 0.3.0 (2026-11-14)
 
 - **Single image mode**: a tab can show one image in one panel, with the same histogram, contrast controls, frame selector and Mean / Std / Noise as before. The app now starts in this mode, and so does every new tab.

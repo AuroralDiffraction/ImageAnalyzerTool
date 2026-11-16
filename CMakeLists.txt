@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 
 project(ImageAnalyzerTool
-    VERSION 0.3.0
+    VERSION 0.3.1
     DESCRIPTION "Dark-frame calibration and noise analysis for image stacks (MATLAB .mat, TIFF, PNG, JPEG)"
     HOMEPAGE_URL "https://github.com/AuroralDiffraction"
     LANGUAGES CXX)
