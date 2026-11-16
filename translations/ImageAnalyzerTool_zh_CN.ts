@@ -11,7 +11,7 @@
     <message>
         <location line="+2"/>
         <source>Light frames</source>
-        <translation>亮场帧</translation>
+        <translation>场景帧</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -43,7 +43,7 @@ a .mat file with an X × Y × Z array (Z frames),
 or one or more TIFF, PNG or JPG images (one frame each)
 
 or click Load…</source>
-        <translation>将亮场帧拖放到此处：
+        <translation>将场景帧拖放到此处：
 包含 X × Y × Z 数组（Z 帧）的 .mat 文件，
 或一张或多张 TIFF、PNG、JPG 图像（每张为一帧）
 
@@ -78,10 +78,10 @@ light image − dark image
 
 To show a calibrated image from a file instead,
 drop a .mat, TIFF, PNG or JPG file here.</source>
-        <translation>请加载亮场帧和暗场帧。
+        <translation>请加载场景帧和暗场帧。
 
 此面板随后显示
-亮场图像 − 暗场图像
+场景图像 − 暗场图像
 （两个面板当前显示的图像）。
 
 如果要显示文件中的校准图像，
@@ -103,7 +103,7 @@ drop a .mat, TIFF, PNG or JPG file here.</source>
     <message>
         <location line="+9"/>
         <source>&lt;p&gt;Dark-frame calibration and noise analysis for image stacks stored in MATLAB .mat files or in TIFF, PNG and JPEG images.&lt;/p&gt;&lt;p&gt;&lt;b&gt;Light frames&lt;/b&gt;: one frame of the X × Y × Z stack, or the mean over Z&lt;br&gt;&lt;b&gt;Dark frames&lt;/b&gt;: the pixel-by-pixel mean over Z, or one frame&lt;br&gt;&lt;b&gt;Calibrated frames&lt;/b&gt;: light image − dark image&lt;/p&gt;&lt;p&gt;Made by %1&lt;br&gt;&lt;a href=&quot;%2&quot;&gt;%3&lt;/a&gt;&lt;/p&gt;&lt;p style=&quot;color:gray&quot;&gt;Built with Qt %4&lt;/p&gt;</source>
-        <translation>&lt;p&gt;对存储在 MATLAB .mat 文件或 TIFF、PNG、JPEG 图像中的图像堆栈进行暗场校准和噪声分析。&lt;/p&gt;&lt;p&gt;&lt;b&gt;亮场帧&lt;/b&gt;：X × Y × Z 堆栈中的一帧，或沿 Z 的均值&lt;br&gt;&lt;b&gt;暗场帧&lt;/b&gt;：沿 Z 的逐像素均值，或其中一帧&lt;br&gt;&lt;b&gt;校准帧&lt;/b&gt;：亮场图像 − 暗场图像&lt;/p&gt;&lt;p&gt;作者：%1&lt;br&gt;&lt;a href=&quot;%2&quot;&gt;%3&lt;/a&gt;&lt;/p&gt;&lt;p style=&quot;color:gray&quot;&gt;基于 Qt %4 构建&lt;/p&gt;</translation>
+        <translation>&lt;p&gt;对存储在 MATLAB .mat 文件或 TIFF、PNG、JPEG 图像中的图像堆栈进行暗场校准和噪声分析。&lt;/p&gt;&lt;p&gt;&lt;b&gt;场景帧&lt;/b&gt;：X × Y × Z 堆栈中的一帧，或沿 Z 的均值&lt;br&gt;&lt;b&gt;暗场帧&lt;/b&gt;：沿 Z 的逐像素均值，或其中一帧&lt;br&gt;&lt;b&gt;校准帧&lt;/b&gt;：场景图像 − 暗场图像&lt;/p&gt;&lt;p&gt;作者：%1&lt;br&gt;&lt;a href=&quot;%2&quot;&gt;%3&lt;/a&gt;&lt;/p&gt;&lt;p style=&quot;color:gray&quot;&gt;基于 Qt %4 构建&lt;/p&gt;</translation>
     </message>
     <message>
         <location line="+24"/>
@@ -227,7 +227,7 @@ drop a .mat, TIFF, PNG or JPG file here.</source>
     <message>
         <location line="+3"/>
         <source>Load one file here. Several images can be combined in the Light frames and Dark frames panels.</source>
-        <translation>此处请加载一个文件。多张图像可以在亮场帧和暗场帧面板中合并。</translation>
+        <translation>此处请加载一个文件。多张图像可以在场景帧和暗场帧面板中合并。</translation>
     </message>
 </context>
 <context>
@@ -244,11 +244,11 @@ the light and dark frames.
 
 Click to remove the loaded image and turn automatic calibration
 (light image − dark image) back on.</source>
-        <translation>此面板显示的是从文件加载的图像，因此不是由亮场帧和暗场帧
+        <translation>此面板显示的是从文件加载的图像，因此不是由场景帧和暗场帧
 计算得到的。
 
 点击可移除已加载的图像，并重新开启自动校准
-（亮场图像 − 暗场图像）。</translation>
+（场景图像 − 暗场图像）。</translation>
     </message>
     <message>
         <location line="+18"/>
@@ -282,7 +282,7 @@ Automatic calibration then turns off.</source>
     <message>
         <location line="+9"/>
         <source>Light image − dark image</source>
-        <translation>亮场图像 − 暗场图像</translation>
+        <translation>场景图像 − 暗场图像</translation>
     </message>
     <message>
         <location line="+0"/>
@@ -441,7 +441,7 @@ Switch to Single frame to choose one frame.</source>
     <message>
         <location line="+1"/>
         <source>light image − dark image (the images on display)</source>
-        <translation>亮场图像 − 暗场图像（当前显示的图像）</translation>
+        <translation>场景图像 − 暗场图像（当前显示的图像）</translation>
     </message>
     <message>
         <location line="+4"/>
@@ -521,7 +521,7 @@ sqrt(mean(var(double(light), 1, 3), &quot;all&quot;))
 
 It describes the whole stack, so it does not change with the
 frame on display or with Single frame / Mean.</source>
-        <translation>全部 %1 个亮场帧的时域噪声
+        <translation>全部 %1 个场景帧的时域噪声
 
 calculateImageNoise(light)：
 sqrt(mean(var(double(light), 1, 3), &quot;all&quot;))
@@ -573,8 +573,8 @@ the temporal variance, so this equals the light-frame noise.</source>
 calculateImageNoise(light − D)：
 sqrt(mean(var(light − D, 1, 3), &quot;all&quot;))
 
-从每个亮场帧中减去同一幅图像 D 不会改变
-时域方差，因此该值等于亮场帧的噪声。</translation>
+从每个场景帧中减去同一幅图像 D 不会改变
+时域方差，因此该值等于场景帧的噪声。</translation>
     </message>
     <message>
         <location line="+14"/>
@@ -663,7 +663,7 @@ sqrt(mean(var(light − D, 1, 3), &quot;all&quot;))
     <message>
         <location line="+21"/>
         <source>Drop a .mat file, or one or more TIFF, PNG or JPG images, onto the panel. For light, dark and calibrated frames, use the switch at the top right.</source>
-        <translation>将一个 .mat 文件，或一张或多张 TIFF、PNG、JPG 图像拖放到面板上。如需亮场帧、暗场帧和校准帧，请使用右上角的切换开关。</translation>
+        <translation>将一个 .mat 文件，或一张或多张 TIFF、PNG、JPG 图像拖放到面板上。如需场景帧、暗场帧和校准帧，请使用右上角的切换开关。</translation>
     </message>
     <message>
         <location line="+6"/>
@@ -679,7 +679,7 @@ sqrt(mean(var(light − D, 1, 3), &quot;all&quot;))
         <location line="+5"/>
         <location line="+72"/>
         <source>Open &amp;light frames…</source>
-        <translation>打开亮场帧(&amp;L)…</translation>
+        <translation>打开场景帧(&amp;L)…</translation>
     </message>
     <message>
         <location line="-69"/>
@@ -957,7 +957,7 @@ sqrt(mean(var(light − D, 1, 3), &quot;all&quot;))
     <message>
         <location line="+1"/>
         <source>Single image, or three panels: light, dark and calibrated frames</source>
-        <translation>单图像，或三个面板：亮场帧、暗场帧和校准帧</translation>
+        <translation>单图像，或三个面板：场景帧、暗场帧和校准帧</translation>
     </message>
     <message>
         <location line="+18"/>
@@ -967,7 +967,7 @@ sqrt(mean(var(light − D, 1, 3), &quot;all&quot;))
     <message>
         <location line="+1"/>
         <source>Three panels: light frames, dark frames and calibrated frames</source>
-        <translation>三个面板：亮场帧、暗场帧和校准帧</translation>
+        <translation>三个面板：场景帧、暗场帧和校准帧</translation>
     </message>
 </context>
 <context>
@@ -982,7 +982,7 @@ sqrt(mean(var(light − D, 1, 3), &quot;all&quot;))
         <location line="-248"/>
         <location line="+385"/>
         <source>light frames</source>
-        <translation>亮场帧</translation>
+        <translation>场景帧</translation>
     </message>
     <message>
         <location line="-384"/>
@@ -1003,7 +1003,7 @@ sqrt(mean(var(light − D, 1, 3), &quot;all&quot;))
     <message>
         <location line="+1"/>
         <source>Three panels: light frames, dark frames and calibrated frames (light − dark)</source>
-        <translation>三个面板：亮场帧、暗场帧和校准帧（亮场 − 暗场）</translation>
+        <translation>三个面板：场景帧、暗场帧和校准帧（场景 − 暗场）</translation>
     </message>
     <message>
         <location line="+37"/>
@@ -1018,7 +1018,7 @@ sqrt(mean(var(light − D, 1, 3), &quot;all&quot;))
     <message>
         <location line="+1"/>
         <source>Open light frames: one .mat file, or one or more images</source>
-        <translation>打开亮场帧：一个 .mat 文件，或一张或多张图像</translation>
+        <translation>打开场景帧：一个 .mat 文件，或一张或多张图像</translation>
     </message>
     <message>
         <location line="+8"/>
@@ -1164,7 +1164,7 @@ Which one holds the %2?</source>
     <message>
         <location line="+23"/>
         <source>Automatic calibration is on: light image − dark image</source>
-        <translation>自动校准已开启：亮场图像 − 暗场图像</translation>
+        <translation>自动校准已开启：场景图像 − 暗场图像</translation>
     </message>
     <message>
         <location line="+6"/>
@@ -1174,12 +1174,12 @@ Which one holds the %2?</source>
     <message>
         <location line="+0"/>
         <source>light frame</source>
-        <translation>亮场帧</translation>
+        <translation>场景帧</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Light frame %1 of %2</source>
-        <translation>亮场帧 %1/%2</translation>
+        <translation>场景帧 %1/%2</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -1204,8 +1204,8 @@ Now load light frames to compute
 light image − dark image.</source>
         <translation>暗场帧已就绪。
 
-请加载亮场帧以计算
-亮场图像 − 暗场图像。</translation>
+请加载场景帧以计算
+场景图像 − 暗场图像。</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -1213,15 +1213,15 @@ light image − dark image.</source>
 
 Now load dark frames to compute
 light image − dark image.</source>
-        <translation>亮场帧已就绪。
+        <translation>场景帧已就绪。
 
 请加载暗场帧以计算
-亮场图像 − 暗场图像。</translation>
+场景图像 − 暗场图像。</translation>
     </message>
     <message>
         <location line="+2"/>
         <source>Waiting for the mean light and dark images …</source>
-        <translation>正在等待亮场和暗场的均值图像…</translation>
+        <translation>正在等待场景和暗场的均值图像…</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -1231,13 +1231,13 @@ light image − dark image.</source>
     <message>
         <location line="+0"/>
         <source>Waiting for the mean light image …</source>
-        <translation>正在等待亮场均值图像…</translation>
+        <translation>正在等待场景均值图像…</translation>
     </message>
     <message>
         <location line="+2"/>
         <location line="+10"/>
         <source>Light image − dark image</source>
-        <translation>亮场图像 − 暗场图像</translation>
+        <translation>场景图像 − 暗场图像</translation>
     </message>
     <message>
         <location line="-4"/>
@@ -1249,7 +1249,7 @@ dark image   %3 × %4
 Load files with the same X × Y size.</source>
         <translation>尺寸不一致：
 
-亮场图像  %1 × %2
+场景图像  %1 × %2
 暗场图像  %3 × %4
 
 请加载 X × Y 尺寸相同的文件。</translation>
@@ -1562,7 +1562,7 @@ Restarting closes all tabs; images that are loaded are not kept.</source>
     <message>
         <location line="+6"/>
         <source>Image to open in the first tab (the light frames, when dark frames are given too): a .mat file, or an image file (repeat the option for several images).</source>
-        <translation>在第一个标签页中打开的图像（同时指定暗场帧时作为亮场帧）：一个 .mat 文件，或一个图像文件（多张图像可重复使用该选项）。</translation>
+        <translation>在第一个标签页中打开的图像（同时指定暗场帧时作为场景帧）：一个 .mat 文件，或一个图像文件（多张图像可重复使用该选项）。</translation>
     </message>
     <message>
         <location line="+3"/>

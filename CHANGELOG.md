@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2 (2026-11-16)
+
+- Chinese interface: light frames are now called 场景帧 (scene frames) instead of 亮场帧; the light image is 场景图像.
+
 ## 0.3.1 (2026-11-16)
 
 - The mouse cursor over an image is a crosshair instead of a hand, so it is clear which pixel it points at. It still turns into a closed hand while you drag to pan.
