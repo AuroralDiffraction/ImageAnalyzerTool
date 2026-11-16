@@ -47,6 +47,8 @@ constexpr double kAutoHigh = 0.995;
 
 QString formatValue(double v) { return QString::number(v, 'g', 7); }
 
+const QColor kSingleImageAccent(0x7B, 0x6C, 0xB8);
+
 QColor accentFor(PanelRole role)
 {
     switch (role) {
@@ -57,8 +59,10 @@ QColor accentFor(PanelRole role)
     return Qt::gray;
 }
 
-QString titleFor(PanelRole role)
+QString titleFor(PanelRole role, bool single = false)
 {
+    if (single)
+        return QObject::tr("Image");
     switch (role) {
     case PanelRole::Light:      return QObject::tr("Light frames");
     case PanelRole::Dark:       return QObject::tr("Dark frames");
@@ -67,8 +71,13 @@ QString titleFor(PanelRole role)
     return {};
 }
 
-QString placeholderFor(PanelRole role)
+QString placeholderFor(PanelRole role, bool single = false)
 {
+    if (single)
+        return QObject::tr("Drop an image here:\n"
+                           "a .mat file with an X × Y array or an X × Y × Z array (Z frames),\n"
+                           "or one or more TIFF, PNG or JPG images (one frame each)\n\n"
+                           "or click Load…");
     switch (role) {
     case PanelRole::Light:
         return QObject::tr("Drop light frames here:\n"
@@ -147,10 +156,10 @@ ImagePanel::ImagePanel(PanelRole role, QWidget* parent)
     layout->setSpacing(6);
 
     // Accent strip + title row.
-    auto* accent = new QFrame(this);
-    accent->setFixedHeight(4);
-    accent->setStyleSheet(QStringLiteral("background: %1; border-radius: 2px;").arg(accentFor(role).name()));
-    layout->addWidget(accent);
+    m_accent = new QFrame(this);
+    m_accent->setFixedHeight(4);
+    m_accent->setStyleSheet(QStringLiteral("background: %1; border-radius: 2px;").arg(accent().name()));
+    layout->addWidget(m_accent);
 
     // Title row: Title [● Auto calibration off]  ...  [Single frame|Mean] [Load…]
     auto* header = new QHBoxLayout;
@@ -181,20 +190,16 @@ ImagePanel::ImagePanel(PanelRole role, QWidget* parent)
     header->addStretch(1);
     if (role != PanelRole::Calibrated) {
         // Single frame / Mean toggle: two buttons that work as one switch.
-        auto makeModeButton = [this](const QString& text, const QString& tip) {
+        auto makeModeButton = [this](const QString& text) {
             auto* b = new QToolButton(this);
             b->setText(text);
-            b->setToolTip(tip);
             b->setCheckable(true);
             b->setToolButtonStyle(Qt::ToolButtonTextOnly);
             return b;
         };
-        const QString stack = role == PanelRole::Light ? QStringLiteral("light") : QStringLiteral("dark");
-        m_singleButton = makeModeButton(tr("Single frame"),
-                                        tr("Show one frame of the stack: %1(:, :, k).\nChoose the frame below the image.")
-                                            .arg(stack));
-        m_meanButton = makeModeButton(tr("Mean"),
-                                      tr("Show the pixel-by-pixel mean over all frames: mean(%1, 3)").arg(stack));
+        m_singleButton = makeModeButton(tr("Single frame"));
+        m_meanButton = makeModeButton(tr("Mean"));
+        updateModeTooltips();
         m_modeGroup = new QButtonGroup(this);
         m_modeGroup->setExclusive(true);
         m_modeGroup->addButton(m_singleButton);
@@ -416,6 +421,39 @@ ImagePanel::ImagePanel(PanelRole role, QWidget* parent)
 
 QString ImagePanel::title() const { return m_title->text(); }
 
+QColor ImagePanel::accent() const
+{
+    return m_single ? kSingleImageAccent : accentFor(m_role);
+}
+
+void ImagePanel::setSingleImage(bool on)
+{
+    if (m_role != PanelRole::Light || on == m_single)
+        return;
+    const bool showsDefaultText = !hasImage() && m_placeholder->text() == m_defaultPlaceholder;
+    m_single = on;
+    m_title->setText(titleFor(m_role, on));
+    m_accent->setStyleSheet(QStringLiteral("background: %1; border-radius: 2px;").arg(accent().name()));
+    m_defaultPlaceholder = placeholderFor(m_role, on);
+    if (showsDefaultText)
+        m_placeholder->setText(m_defaultPlaceholder);
+    updateModeTooltips();
+    updateStatTooltips();
+    if (!m_noisePending && m_noiseFrames > 0)
+        setNoise(m_noise, m_noiseFrames);  // the same value, with the tooltip for this mode
+}
+
+void ImagePanel::updateModeTooltips()
+{
+    if (!m_singleButton)
+        return;
+    const QString stack = m_single ? QStringLiteral("frames")
+                                   : m_role == PanelRole::Light ? QStringLiteral("light") : QStringLiteral("dark");
+    m_singleButton->setToolTip(
+        tr("Show one frame of the stack: %1(:, :, k).\nChoose the frame below the image.").arg(stack));
+    m_meanButton->setToolTip(tr("Show the pixel-by-pixel mean over all frames: mean(%1, 3)").arg(stack));
+}
+
 QSize ImagePanel::sizeHint() const
 {
     QSize s = QFrame::sizeHint();
@@ -569,7 +607,10 @@ void ImagePanel::updateStatTooltips()
     QString shown;
     switch (m_role) {
     case PanelRole::Light:
-        shown = m_mode == FrameMode::Mean ? QStringLiteral("mean(light, 3)") : QStringLiteral("light(:, :, k)");
+        if (m_single)
+            shown = m_mode == FrameMode::Mean ? QStringLiteral("mean(frames, 3)") : QStringLiteral("frames(:, :, k)");
+        else
+            shown = m_mode == FrameMode::Mean ? QStringLiteral("mean(light, 3)") : QStringLiteral("light(:, :, k)");
         break;
     case PanelRole::Dark:
         shown = m_mode == FrameMode::Mean ? QStringLiteral("mean(dark, 3)") : QStringLiteral("dark(:, :, k)");
@@ -721,6 +762,13 @@ void ImagePanel::setNoise(double noise, int frameCount)
     QString tip;
     switch (m_role) {
     case PanelRole::Light:
+        if (m_single) {
+            tip = tr("Temporal noise of all %1 frames\n\n"
+                     "calculateImageNoise(frames):\nsqrt(mean(var(double(frames), 1, 3), \"all\"))\n\n"
+                     "It describes the whole stack, so it does not change with the\n"
+                     "frame on display or with Single frame / Mean.");
+            break;
+        }
         tip = tr("Temporal noise of all %1 light frames\n\n"
                  "calculateImageNoise(light):\nsqrt(mean(var(double(light), 1, 3), \"all\"))\n\n"
                  "It describes the whole stack, so it does not change with the\n"
@@ -819,7 +867,7 @@ QImage ImagePanel::renderReport() const
 
     int y = margin;
     p.setPen(Qt::NoPen);
-    p.setBrush(accentFor(m_role));
+    p.setBrush(accent());
     p.drawRoundedRect(QRectF(margin, y, W, gap(4)), gap(2), gap(2));
     p.setBrush(Qt::NoBrush);
     y += gap(6);
@@ -873,8 +921,9 @@ void ImagePanel::copyImageToClipboard()
     if (!hasImage())
         return;
     QApplication::clipboard()->setImage(m_rendered.convertToFormat(QImage::Format_RGB32));
-    emit message(tr("Copied the %1 image to the clipboard (%2 × %3 px)")
-                     .arg(title().toLower())
+    const QString what = m_single ? tr("image") : tr("%1 image").arg(title().toLower());
+    emit message(tr("Copied the %1 to the clipboard (%2 × %3 px)")
+                     .arg(what)
                      .arg(m_rendered.width())
                      .arg(m_rendered.height()));
 }
@@ -886,8 +935,9 @@ void ImagePanel::copyReportToClipboard()
     // Image only, so every application pastes it as a figure.
     const QImage figure = renderReport();
     QApplication::clipboard()->setImage(figure);
+    const QString what = m_single ? tr("image") : title().toLower();
     emit message(tr("Copied the %1 figure (image, histogram and statistics) to the clipboard (%2 × %3 px)")
-                     .arg(title().toLower())
+                     .arg(what)
                      .arg(figure.width())
                      .arg(figure.height()));
 }

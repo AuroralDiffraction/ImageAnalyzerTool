@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 
 project(ImageAnalyzerTool
-    VERSION 0.2.0
+    VERSION 0.3.0
     DESCRIPTION "Dark-frame calibration and noise analysis for image stacks (MATLAB .mat, TIFF, PNG, JPEG)"
     HOMEPAGE_URL "https://github.com/AuroralDiffraction"
     LANGUAGES CXX)
@@ -16,7 +16,7 @@ set(CMAKE_AUTOMOC ON)
 
 option(IAT_BUILD_TESTS "Build the unit tests and the UI smoke test" ON)
 
-find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Widgets Concurrent)
+find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Widgets Concurrent LinguistTools)
 
 if(MSVC)
     # Sources are UTF-8 (they contain characters such as the multiplication sign).
@@ -52,6 +52,10 @@ configure_file(src/AppInfo.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/AppInfo.h 
 add_library(iaui STATIC
     src/ui/MainWindow.h         src/ui/MainWindow.cpp
     src/ui/SessionTab.h         src/ui/SessionTab.cpp
+    src/ui/LayoutMode.h
+    src/ui/ModeSwitch.h         src/ui/ModeSwitch.cpp
+    src/ui/Language.h           src/ui/Language.cpp
+    src/ui/SettingsDialog.h     src/ui/SettingsDialog.cpp
     src/ui/ImagePanel.h         src/ui/ImagePanel.cpp
     src/ui/ImageView.h          src/ui/ImageView.cpp
     src/ui/HistogramWidget.h    src/ui/HistogramWidget.cpp
@@ -77,11 +81,62 @@ function(iat_add_icon_resources target)
 endfunction()
 
 # ---------------------------------------------------------------------------
+# Translations. The texts in the code are English; every .ts file listed here
+# is one more interface language (Chinese is the default, see
+# src/ui/Language.cpp). lrelease compiles each .ts into a .qm file, which is
+# embedded in the executables as :/i18n/ImageAnalyzerTool_<code>.qm.
+#
+# After changing texts in the code, bring the .ts files up to date with
+#   cmake --build <build folder> --target update_translations
+# and translate the new entries (Qt Linguist, or edit the .ts file).
+# ---------------------------------------------------------------------------
+set(IAT_TS_FILES
+    "${CMAKE_SOURCE_DIR}/translations/ImageAnalyzerTool_zh_CN.ts")
+
+qt_add_lrelease(iaui TS_FILES ${IAT_TS_FILES} QM_FILES_OUTPUT_VARIABLE IAT_QM_FILES)
+
+# Qt's own texts (standard buttons, About Qt, ...) in the same languages, when
+# this Qt installation has them.
+set(IAT_QT_QM_FILES)
+foreach(_ts IN LISTS IAT_TS_FILES)
+    get_filename_component(_name "${_ts}" NAME_WE)                # ImageAnalyzerTool_zh_CN
+    string(REPLACE "ImageAnalyzerTool_" "" _lang "${_name}")      # zh_CN
+    set(_qt_qm "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_TRANSLATIONS}/qtbase_${_lang}.qm")
+    if(EXISTS "${_qt_qm}")
+        list(APPEND IAT_QT_QM_FILES "${_qt_qm}")
+    endif()
+endforeach()
+
+function(iat_add_translation_resources target)
+    foreach(_qm IN LISTS IAT_QM_FILES IAT_QT_QM_FILES)
+        get_filename_component(_alias "${_qm}" NAME)
+        set_source_files_properties("${_qm}" PROPERTIES QT_RESOURCE_ALIAS "${_alias}")
+    endforeach()
+    # The .qm files are made by the iaui_lrelease target (in the top-level folder).
+    set_source_files_properties(${IAT_QM_FILES} PROPERTIES GENERATED TRUE)
+    qt_add_resources(${target} "translations"
+        PREFIX "/i18n"
+        FILES ${IAT_QM_FILES} ${IAT_QT_QM_FILES})
+    add_dependencies(${target} iaui_lrelease)
+endfunction()
+
+# The update_translations target: rewrites the .ts files from the texts in the
+# code (iaui, iacore and main.cpp), keeping the existing translations.
+# Texts that are no longer in the code stay in the .ts file, marked as
+# vanished, until they are removed in Qt Linguist.
+get_target_property(_iat_ui_sources iaui SOURCES)
+get_target_property(_iat_core_sources iacore SOURCES)
+qt_add_lupdate(iaui TS_FILES ${IAT_TS_FILES}
+    SOURCES ${_iat_ui_sources} ${_iat_core_sources} src/main.cpp
+    OPTIONS -locations relative)
+
+# ---------------------------------------------------------------------------
 # The application.
 # ---------------------------------------------------------------------------
 qt_add_executable(ImageAnalyzerTool WIN32 MACOSX_BUNDLE src/main.cpp)
 target_link_libraries(ImageAnalyzerTool PRIVATE iaui)
 iat_add_icon_resources(ImageAnalyzerTool)
+iat_add_translation_resources(ImageAnalyzerTool)
 
 # Windows: icon shown by Explorer / taskbar, and version info (author, URL)
 # under the .exe's Properties > Details.

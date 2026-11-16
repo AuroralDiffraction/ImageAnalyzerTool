@@ -1,11 +1,13 @@
 # Architecture and plan
 
-## What the app does (version 0.2)
+## What the app does (version 0.3)
 
 | Requirement | Where it lives |
 |---|---|
 | Create new tabs | `MainWindow` (+ button, Ctrl+T, double-click on empty tab bar); tabs can be renamed (double-click / F2) and closed |
-| Three panels per tab: Light frames, Dark frames, Calibrated frames | `SessionTab` holds three `ImagePanel`s in a splitter |
+| Two layouts per tab: a single image (the default) or three panels (Light frames, Dark frames, Calibrated frames) | `SessionTab` holds three `ImagePanel`s in a splitter. `SessionTab::setLayoutMode` (`LayoutMode::Single` / `Triple`) hides the dark and calibrated panels and presents the light panel as "Image" (`ImagePanel::setSingleImage`) |
+| Chinese interface by default; language chosen in File → Settings | `language::` (`src/ui/Language.*`) installs Qt translators at start-up from the embedded `.qm` files; `SettingsDialog` stores the choice and offers a restart |
+| Slide switch with icons to change the layout; every tab has its own | `ModeSwitch` in the tab bar's corner, next to +. `MainWindow` applies it to the current tab and moves it when the tab changes (`syncModeUi`) |
 | Drag a .mat file (X × Y × Z), or one or more TIFF / PNG / JPEG images, onto Light or Dark | `ImagePanel` drop handling (`selectFiles` decides what is allowed) → `SessionTab::loadLight/loadDark` → `MatFileReader` or `ImageFileReader::readSequence` |
 | Several image files form one stack (only images; only Light and Dark) | `ImageFileReader::readSequence`: frames in natural file-name order (`sortNaturally`), same size required |
 | Light and Dark: Single frame or Mean, defaults Single (light) and Mean (dark) | Toggle in the panel header (`ImagePanel::frameMode`) → `SessionTab::refreshPanel` shows `ImageStack::frame(k)` or the mean (`processing::meanOverFrames`, MATLAB: `mean(stack, 3)`) |
@@ -24,15 +26,21 @@ Additions beyond the brief, kept small: a Load… button (as well as drag and dr
 ## Layers
 
 ```
-src/main.cpp           start-up, window icon, command-line options (--light, --dark)
+src/main.cpp           start-up, interface language, window icon, command-line options (--light, --dark)
+translations/          interface translations (.ts), compiled into the executables
 src/AppInfo.h.in       name / version / author / homepage, filled in by CMake
 src/app/*.rc.in        Windows resources: exe icon and version info, filled in by CMake
 resources/icons/       app icon (SVG sources, PNGs as Qt resources, .ico)
 src/ui/      iaui      Qt Widgets
     MainWindow           tabs, menus, status bar
     AboutDialog          Help > About: icon, version, description, GitHub link
+    Language             interface languages, the saved choice, installing translators
+    SettingsDialog       File > Settings: interface language
+    ModeSwitch           slide switch with two icons: single image / three panels
+    LayoutMode           the two layouts of a tab
     SessionTab           one tab: owns the data (one Source per panel: stack,
-                         mean, noise), wires the three panels together
+                         mean, noise), wires the three panels together, shows
+                         one panel or all three
     ImagePanel           title, Single frame / Mean toggle, ImageView, frame
                          selector, histogram, sliders, statistics, export
     ImageView            QGraphicsView: zoom, pan, hover read-out
@@ -94,6 +102,8 @@ Inside each panel: when the image changes, the statistics and histogram are comp
 
   Mean and Std change when you pick another frame or mode; Noise doesn't. The noise values are computed on a worker thread; the calibrated noise is recalculated when the dark image changes, 150 ms after the last change so stepping through dark frames stays smooth. Hover over a value to see its definition.
 - **Histogram and contrast** use the finite pixels only, so a few NaN/Inf pixels don't break the display.
+- **Single image mode.** The single image is the light stack shown in the light panel on its own, so nothing is loaded twice and both layouts use the same code for the histogram, contrast and Mean / Std / Noise. Switching to three panels keeps the image as the light frames; dark frames and a loaded calibrated image are kept while their panels are hidden. While hidden, the calibrated panel is not recalculated (stepping through frames stays as fast as with one image); `setLayoutMode` brings it up to date when the three panels return, and the views that were hidden take over the zoom and pan. In this mode the panel's texts, the default export names (`_frame001`, `_mean`, `_all`) and the exported variables (`frame`, `mean_frame`, `frames`) don't mention light frames. File → Open dark frames… and Open calibrated image… are disabled.
+- **Languages.** Texts in the code are English and wrapped in `tr()`; `iacore`, which has no QObject classes, uses `QCoreApplication::translate("iat::<Reader>", …)`. The readers' parse errors travel as exceptions: fixed messages are marked with `QT_TRANSLATE_NOOP` where they are thrown and translated where they are caught, and messages with values in them are translated when thrown. `translations/ImageAnalyzerTool_zh_CN.ts` is compiled by `lrelease` during the build (`qt_add_lrelease`) and embedded as `:/i18n/ImageAnalyzerTool_zh_CN.qm`, together with Qt's own `qtbase_zh_CN.qm` (standard buttons, About Qt) when the Qt installation has it. `main.cpp` installs the saved language (Chinese if none) before any widget exists. Widgets take their texts when they are built, so a change of language applies after a restart rather than live; this keeps every widget free of retranslation code. The tests run without a translator, so they see the English texts. Names in exported .mat files and MATLAB expressions in tooltips are not translated.
 - **Linked views.** Zoom and pan are shared by the three views of a tab, as one `ViewState` (fit flag, zoom, centre in image coordinates). A view reports only user actions (wheel, drag, scroll bars, double-click); changes it makes to itself (fitting on resize, showing a new image) are not reported, so the views never feed back into each other. A view that starts showing a new image adopts the shared state.
 - **Exports** hold raw values, not the 8-bit display: frames are saved as double, and "All frames" of the light and dark stacks (and of a stack loaded into the Calibrated panel) keeps the original class and storage type, so it is identical to the input. The calibrated stack is written frame by frame straight into the output buffer, so it isn't held in memory twice. On a 1028 × 1408 × 20 stack (in the test environment): one frame saves in about 0.2 s, the light stack in about 1 s, and the calibrated stack in about 4 s, to an 87 MB file. Saving runs on a worker thread, so the window stays usable. The PNG is the displayed image (current contrast, 8-bit grey, full resolution). "Copy image with histogram and statistics" puts a single image on the clipboard, with no text, so every application pastes it as a figure. The figure shows the displayed image at full resolution, then the histogram painted by the panel's own widget (`HistogramWidget::paintAsShown`: same colours, markers, log setting and proportions) scaled up to the image width, then Mean / Std / Noise. Text and spacing are scaled by the same factor, so the figure looks like an enlarged panel.
 - **Contrast.** It resets to Auto (the 0.5–99.5 % percentiles) when a new file is loaded, so a few hot or saturated pixels (16383 in 14-bit dark frames) don't wash the image out. **Full range** shows min to max instead. The range is kept when you only change frame or switch between Single frame and Mean, so you can compare with a fixed display range.

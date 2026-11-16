@@ -85,17 +85,18 @@ SessionTab::SessionTab(QWidget* parent)
     m_darkPanel = new ImagePanel(PanelRole::Dark, this);
     m_calPanel = new ImagePanel(PanelRole::Calibrated, this);
 
-    auto* splitter = new QSplitter(Qt::Horizontal, this);
-    splitter->setChildrenCollapsible(false);
-    splitter->setHandleWidth(8);
+    m_splitter = new QSplitter(Qt::Horizontal, this);
+    m_splitter->setChildrenCollapsible(false);
+    m_splitter->setHandleWidth(8);
     for (ImagePanel* p : {m_lightPanel, m_darkPanel, m_calPanel})
-        splitter->addWidget(p);
+        m_splitter->addWidget(p);
     for (int i = 0; i < 3; ++i)
-        splitter->setStretchFactor(i, 1);
+        m_splitter->setStretchFactor(i, 1);
 
     auto* layout = new QHBoxLayout(this);
     layout->setContentsMargins(6, 6, 6, 6);
-    layout->addWidget(splitter);
+    layout->addWidget(m_splitter);
+    applyLayoutMode();
 
     // The calibrated noise is recalculated when the dark image changes. While
     // the dark frame is being stepped through, wait until it settles.
@@ -157,7 +158,7 @@ ImagePanel* SessionTab::panel(Target t) const
 QString SessionTab::targetName(Target t) const
 {
     switch (t) {
-    case Target::Light: return tr("light frames");
+    case Target::Light: return isSingleImage() ? tr("image") : tr("light frames");
     case Target::Dark: return tr("dark frames");
     case Target::Calibrated: break;
     }
@@ -167,6 +168,53 @@ QString SessionTab::targetName(Target t) const
 bool SessionTab::isAutoCalibration() const
 {
     return m_cal.isNull() && !m_reading[int(Target::Calibrated)];
+}
+
+// ---------------------------------------------------------------------------
+// Single image / three panels
+// ---------------------------------------------------------------------------
+
+void SessionTab::applyLayoutMode()
+{
+    const bool single = isSingleImage();
+    m_lightPanel->setSingleImage(single);
+    m_darkPanel->setVisible(!single);
+    m_calPanel->setVisible(!single);
+}
+
+void SessionTab::setLayoutMode(LayoutMode mode)
+{
+    if (mode == m_layout)
+        return;
+    if (m_layout == LayoutMode::Triple)
+        m_tripleSizes = m_splitter->sizes();
+    m_layout = mode;
+    applyLayoutMode();
+
+    if (mode == LayoutMode::Triple) {
+        // Same widths as when the three panels were last on show (equal the first time).
+        if (m_tripleSizes.size() == 3)
+            m_splitter->setSizes(m_tripleSizes);
+        else
+            m_splitter->setSizes({1000, 1000, 1000});
+        if (m_calStale) {
+            const bool resetContrast = m_calStaleResetContrast;
+            m_calStale = false;
+            m_calStaleResetContrast = false;
+            updateCalibrated(resetContrast);
+        }
+        // Once the panels have their size, the views that were hidden take
+        // over the zoom and pan of the one that stayed on show.
+        QTimer::singleShot(0, this, [this] {
+            for (ImagePanel* p : {m_lightPanel, m_darkPanel, m_calPanel})
+                p->view()->setViewState(m_sharedView);
+        });
+    }
+
+    emit layoutModeChanged(mode);
+    emit statusMessage(mode == LayoutMode::Single
+                           ? tr("Single image")
+                           : tr("Three panels: light frames, dark frames and calibrated frames (light − dark)"));
 }
 
 // ---------------------------------------------------------------------------
@@ -218,7 +266,9 @@ QStringList SessionTab::openDialog(const QString& title, bool multiple)
 
 void SessionTab::openLightDialog()
 {
-    const QStringList paths = openDialog(tr("Open light frames: one .mat file, or one or more images"), true);
+    const QStringList paths = openDialog(isSingleImage() ? tr("Open an image: one .mat file, or one or more images")
+                                                         : tr("Open light frames: one .mat file, or one or more images"),
+                                         true);
     if (!paths.isEmpty())
         loadLight(paths);
 }
@@ -521,6 +571,12 @@ void SessionTab::updateCalibrated(bool resetContrast)
 {
     if (!isAutoCalibration())
         return;  // the panel shows an image loaded from a file
+    if (isSingleImage()) {
+        // The panel is hidden: setLayoutMode() calculates it when it is shown again.
+        m_calStale = true;
+        m_calStaleResetContrast = m_calStaleResetContrast || resetContrast;
+        return;
+    }
 
     const Image2D& lightImage = m_light.shown;
     const Image2D& darkImage = m_dark.shown;
@@ -628,6 +684,13 @@ QString SessionTab::defaultExportName(ImagePanel* panel, ExportKind kind) const
     QString name;
     switch (panel->role()) {
     case PanelRole::Light:
+        if (panel->isSingleImage()) {
+            name = baseNameFor(m_light.paths)
+                   + (stack ? QStringLiteral("_all")
+                      : m_lightPanel->frameMode() == FrameMode::Mean ? QStringLiteral("_mean")
+                                                                     : QStringLiteral("_") + frameTag(m_lightPanel));
+            break;
+        }
         name = baseNameFor(m_light.paths)
                + (stack ? QStringLiteral("_light_all")
                   : m_lightPanel->frameMode() == FrameMode::Mean ? QStringLiteral("_light_mean")
@@ -670,12 +733,15 @@ void SessionTab::exportFrom(ImagePanel* panel, ExportKind kind)
 
     QString title;
     QString filter;
+    const bool single = panel->isSingleImage();
     if (kind == ExportKind::ImagePng) {
-        title = tr("Save %1 image as PNG").arg(panel->title().toLower());
+        title = single ? tr("Save image as PNG") : tr("Save %1 image as PNG").arg(panel->title().toLower());
         filter = tr("PNG image (*.png)");
     } else {
-        title = kind == ExportKind::StackMat ? tr("Save all %1 as .mat").arg(panel->title().toLower())
-                                             : tr("Save %1 data as .mat").arg(panel->title().toLower());
+        if (kind == ExportKind::StackMat)
+            title = single ? tr("Save all frames as .mat") : tr("Save all %1 as .mat").arg(panel->title().toLower());
+        else
+            title = single ? tr("Save image data as .mat") : tr("Save %1 data as .mat").arg(panel->title().toLower());
         filter = tr("MATLAB data (*.mat)");
     }
     QString path = QFileDialog::getSaveFileName(this, title, suggested, filter);
@@ -714,6 +780,7 @@ void SessionTab::exportTo(ImagePanel* panel, ExportKind kind, const QString& pat
 
     // Everything the worker needs, captured by value (implicitly shared, so cheap).
     const PanelRole role = panel->role();
+    const bool singleImage = panel->isSingleImage();
     const Image2D image = panel->image();
     const processing::MeanStd ms = panel->meanStd();
     const double noise = panel->noise();
@@ -750,6 +817,20 @@ void SessionTab::exportTo(ImagePanel* panel, ExportKind kind, const QString& pat
             };
             switch (role) {
             case PanelRole::Light:
+                if (singleImage) {
+                    // Single image mode: the same values under neutral names.
+                    if (kind == ExportKind::StackMat)
+                        ok = w.addStack(QStringLiteral("frames"), light, lightClass);
+                    else if (lightMean)
+                        ok = w.addImage(QStringLiteral("mean_frame"), image)
+                             && w.addScalar(QStringLiteral("frame_count"), lightFrames) && addStats();
+                    else
+                        ok = w.addImage(QStringLiteral("frame"), image)
+                             && w.addScalar(QStringLiteral("frame_index"), lightIndex) && addStats();
+                    ok = ok && w.addScalar(QStringLiteral("img_noise"), noise)
+                            && w.addString(QStringLiteral("source_file"), lightFile);
+                    break;
+                }
                 if (kind == ExportKind::StackMat)
                     ok = w.addStack(QStringLiteral("light"), light, lightClass);
                 else if (lightMean)

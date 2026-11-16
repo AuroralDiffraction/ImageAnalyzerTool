@@ -58,6 +58,10 @@ enum class ExportKind {
 // The calibrated panel shows a red "Auto calibration off" indicator while it
 // holds an image loaded from a file; clicking it asks to go back to
 // automatic calibration.
+//
+// In a tab's single image mode the light panel is the only one on show and
+// is presented as a plain "Image" panel (setSingleImage): same controls and
+// calculations, but its title and texts no longer speak of light frames.
 class ImagePanel : public QFrame {
     Q_OBJECT
 public:
@@ -65,6 +69,10 @@ public:
 
     PanelRole role() const { return m_role; }
     QString title() const;
+
+    // Light panel only: present it as the "Image" panel of single image mode.
+    void setSingleImage(bool on);
+    bool isSingleImage() const { return m_single; }
 
     // The same width for every panel, so a tab's three images start out
     // the same size and line up (the controls make the minimum widths differ).
@@ -153,6 +161,8 @@ protected:
 private:
     QStringList droppedPaths(const QMimeData* mime, QString* error) const;
     void setDropHighlight(bool on);
+    QColor accent() const;
+    void updateModeTooltips();
     void updateFrameControls();
     void updateStatTooltips();
     void render();
@@ -163,6 +173,7 @@ private:
     QString noiseText() const;
 
     PanelRole m_role;
+    bool m_single = false;
     Image2D m_image;
     QImage m_rendered;
     ImageStats m_stats;
@@ -179,6 +190,7 @@ private:
     int m_frameCount = 0;
     bool m_autoOff = false;
 
+    QFrame* m_accent = nullptr;
     QLabel* m_title = nullptr;
     QLabel* m_source = nullptr;
     QToolButton* m_loadButton = nullptr;

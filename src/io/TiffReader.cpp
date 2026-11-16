@@ -2,6 +2,7 @@
 
 #include "core/ElementType.h"
 
+#include <QCoreApplication>
 #include <QFile>
 #include <QMap>
 #include <QSet>
@@ -71,7 +72,7 @@ QString compressionName(quint64 c)
     case 50001: return QStringLiteral("WebP");
     case 50002: return QStringLiteral("JPEG XL");
     }
-    return QStringLiteral("type %1").arg(c);
+    return QCoreApplication::translate("iat::TiffReader", "type %1").arg(c);
 }
 
 // Bounds-checked reads in the file's byte order.
@@ -85,7 +86,7 @@ public:
     void require(qint64 pos, qint64 len) const
     {
         if (pos < 0 || len < 0 || pos > size() || len > size() - pos)
-            throw ParseError("the file is truncated or corrupt");
+            throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "the file is truncated or corrupt"));
     }
     const uchar* ptr(qint64 pos, qint64 len) const
     {
@@ -112,7 +113,7 @@ public:
     {
         const quint64 v = bigTiff ? u64(pos) : u32(pos);
         if (v > quint64(std::numeric_limits<qint64>::max()))
-            throw ParseError("the file is corrupt");
+            throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "the file is corrupt"));
         return qint64(v);
     }
 
@@ -153,7 +154,7 @@ struct Ifd {
         const Entry& e = *it;
         const int size = typeSize(e.type);
         if (size == 0 || e.count > quint64(b.size()))
-            throw ParseError("the file is corrupt");
+            throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "the file is corrupt"));
         b.require(e.valuePos, qint64(e.count) * size);
         std::vector<quint64> out;
         out.reserve(std::size_t(e.count));
@@ -169,7 +170,7 @@ struct Ifd {
             case 9: out.push_back(quint64(std::max<qint64>(0, qint32(b.u32(p))))); break;
             case 17: out.push_back(quint64(std::max<qint64>(0, qint64(b.u64(p))))); break;
             default:
-                throw ParseError("the file is corrupt (unexpected field type)");
+                throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "the file is corrupt (unexpected field type)"));
             }
         }
         return out;
@@ -230,12 +231,12 @@ QByteArray packBitsDecode(const uchar* in, qint64 n, qint64 expected)
         if (c >= 0) {
             const qint64 len = c + 1;
             if (len > n - i)
-                throw ParseError("corrupt PackBits data");
+                throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "corrupt PackBits data"));
             out.append(reinterpret_cast<const char*>(in + i), len);
             i += len;
         } else if (c != -128) {
             if (i >= n)
-                throw ParseError("corrupt PackBits data");
+                throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "corrupt PackBits data"));
             out.append(qsizetype(1 - c), char(in[i++]));
         }
     }
@@ -247,7 +248,7 @@ QByteArray packBitsDecode(const uchar* in, qint64 n, qint64 expected)
 QByteArray lzwDecode(const uchar* in, qint64 n, qint64 expected)
 {
     if (n >= 2 && in[0] == 0 && (in[1] & 0x1))
-        throw ParseError("old-style LZW compression (from before TIFF 6.0) is not supported");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "old-style LZW compression (from before TIFF 6.0) is not supported"));
 
     constexpr int kClear = 256;
     constexpr int kEoi = 257;
@@ -297,7 +298,7 @@ QByteArray lzwDecode(const uchar* in, qint64 n, qint64 expected)
         }
         if (old < 0) {
             if (code > 255)
-                throw ParseError("corrupt LZW data");
+                throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "corrupt LZW data"));
             emitCode(code);
             old = code;
             continue;
@@ -319,7 +320,7 @@ QByteArray lzwDecode(const uchar* in, qint64 n, qint64 expected)
             ++next;
             emitCode(code);
         } else {
-            throw ParseError("corrupt LZW data");
+            throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "corrupt LZW data"));
         }
         old = code;
         if (next >= (1 << width) - 1 && width < 12)
@@ -340,7 +341,7 @@ QByteArray inflate(const uchar* in, qint64 n, qint64 expected)
     framed.append(reinterpret_cast<const char*>(in), n);
     QByteArray out = qUncompress(framed);
     if (out.isEmpty() && expected > 0)
-        throw ParseError("Deflate-compressed image data could not be decompressed (corrupt file?)");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "Deflate-compressed image data could not be decompressed (corrupt file?)"));
     return out;
 }
 
@@ -386,14 +387,14 @@ void swapSamples(uchar* p, qint64 count, int bytes)
 TiffImage decode(const QByteArray& data)
 {
     if (data.size() < 8)
-        throw ParseError("not a TIFF file");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "not a TIFF file"));
     bool big = false;
     if (data.startsWith("II"))
         big = false;
     else if (data.startsWith("MM"))
         big = true;
     else
-        throw ParseError("not a TIFF file");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "not a TIFF file"));
     const Bytes b(data, big);
 
     const quint16 magic = b.u16(2);
@@ -404,10 +405,10 @@ TiffImage decode(const QByteArray& data)
     } else if (magic == 43) {
         bigTiff = true;
         if (b.u16(4) != 8)
-            throw ParseError("unsupported BigTIFF variant");
+            throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "unsupported BigTIFF variant"));
         firstIfd = b.offset(8, true);
     } else {
-        throw ParseError("not a TIFF file");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "not a TIFF file"));
     }
 
     const Ifd ifd = readIfd(b, firstIfd, bigTiff);
@@ -431,31 +432,31 @@ TiffImage decode(const QByteArray& data)
     const quint64 width = ifd.value(b, kImageWidth, 0);
     const quint64 height = ifd.value(b, kImageLength, 0);
     if (width == 0 || height == 0)
-        throw ParseError("the image has no width or height");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "the image has no width or height"));
     if (width > 1000000 || height > 1000000)
-        throw ParseError("the image is too large");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "the image is too large"));
     img.width = int(width);
     img.height = int(height);
 
     const quint64 spp = ifd.value(b, kSamplesPerPixel, 1);
     if (spp < 1 || spp > 16)
-        throw ParseError("unsupported number of samples per pixel");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "unsupported number of samples per pixel"));
     img.samplesPerPixel = int(spp);
 
     const std::vector<quint64> bitsList = ifd.has(kBitsPerSample) ? ifd.values(b, kBitsPerSample)
                                                                   : std::vector<quint64>{1};
     if (bitsList.empty())
-        throw ParseError("the file is corrupt (no bit depth)");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "the file is corrupt (no bit depth)"));
     for (quint64 v : bitsList)
         if (v != bitsList.front())
-            throw ParseError("channels with different bit depths are not supported");
+            throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "channels with different bit depths are not supported"));
     const quint64 bits = bitsList.front();
 
     std::vector<quint64> formats = ifd.values(b, kSampleFormat);
     quint64 format = formats.empty() ? 1 : formats.front();
     for (quint64 v : formats)
         if (v != format)
-            throw ParseError("channels with different sample formats are not supported");
+            throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "channels with different sample formats are not supported"));
     if (format == 4)
         format = 1;  // "undefined": treat as unsigned integers
 
@@ -465,40 +466,42 @@ TiffImage decode(const QByteArray& data)
     const quint64 predictor = ifd.value(b, kPredictor, 1);
 
     if (photometric == 3)
-        throw ParseError("palette (indexed colour) TIFF images are not supported; save the image as greyscale");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "palette (indexed colour) TIFF images are not supported; save the image as greyscale"));
     if (photometric == 4)
-        throw ParseError("transparency-mask TIFF images are not supported");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "transparency-mask TIFF images are not supported"));
     if (photometric > 2) {
         const char* name = photometric == 5 ? "CMYK" : photometric == 6 ? "YCbCr" : photometric == 8 ? "CIE Lab" : nullptr;
-        throw ParseError(name ? QStringLiteral("%1 TIFF images are not supported; save the image as greyscale or RGB")
+        throw ParseError(name ? QCoreApplication::translate("iat::TiffReader", "%1 TIFF images are not supported; save the image as greyscale or RGB")
                                     .arg(QLatin1String(name)).toStdString()
-                              : "this TIFF colour space is not supported; save the image as greyscale or RGB");
+                              : QCoreApplication::translate("iat::TiffReader", "this TIFF colour space is not supported; save the image as greyscale or RGB")
+                                    .toStdString());
     }
     if (photometric == 2 && spp < 3)
-        throw ParseError("the file is corrupt (RGB image with fewer than 3 samples per pixel)");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "the file is corrupt (RGB image with fewer than 3 samples per pixel)"));
     if (bits != 1 && bits != 8 && bits != 16 && bits != 32 && bits != 64)
-        throw ParseError(QStringLiteral("%1-bit samples are not supported (only 1, 8, 16, 32 and 64 bits)")
+        throw ParseError(QCoreApplication::translate("iat::TiffReader", "%1-bit samples are not supported (only 1, 8, 16, 32 and 64 bits)")
                              .arg(bits).toStdString());
     if (bits == 1 && spp != 1)
-        throw ParseError("1-bit images with more than one channel are not supported");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "1-bit images with more than one channel are not supported"));
     if (format != 1 && format != 2 && format != 3)
-        throw ParseError("complex-valued TIFF images are not supported");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "complex-valued TIFF images are not supported"));
     if (format == 3 && bits != 32 && bits != 64)
-        throw ParseError(QStringLiteral("%1-bit floating-point samples are not supported (only 32 and 64 bits)")
+        throw ParseError(QCoreApplication::translate("iat::TiffReader", "%1-bit floating-point samples are not supported (only 32 and 64 bits)")
                              .arg(bits).toStdString());
     if (compression != kNone && compression != kLzw && compression != kDeflate && compression != kAdobeDeflate
         && compression != kPackBits)
-        throw ParseError(QStringLiteral("%1 compression is not supported. Save the image uncompressed, or with "
-                                        "LZW or Deflate (ZIP) compression.")
+        throw ParseError(QCoreApplication::translate("iat::TiffReader",
+                                                     "%1 compression is not supported. Save the image uncompressed, or with "
+                                                     "LZW or Deflate (ZIP) compression.")
                              .arg(compressionName(compression)).toStdString());
     if (predictor != 1 && predictor != 2 && predictor != 3)
-        throw ParseError("unsupported predictor");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "unsupported predictor"));
     if ((predictor == 2 && (format == 3 || bits == 1)) || (predictor == 3 && format != 3))
-        throw ParseError("the file is corrupt (predictor does not match the sample format)");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "the file is corrupt (predictor does not match the sample format)"));
     if (ifd.value(b, kFillOrder, 1) == 2)
-        throw ParseError("bit-reversed (FillOrder 2) TIFF files are not supported");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "bit-reversed (FillOrder 2) TIFF files are not supported"));
     if (planar != 1 && planar != 2)
-        throw ParseError("unsupported planar configuration");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "unsupported planar configuration"));
 
     img.bitsPerSample = int(bits);
     img.sampleFormat = int(format);
@@ -510,7 +513,7 @@ TiffImage decode(const QByteArray& data)
     const qint64 outPixelBytes = qint64(spp) * bytesPerSample;
     const qint64 outBytes = qint64(width) * qint64(height) * outPixelBytes;
     if (outBytes > (qint64(1) << 34))
-        throw ParseError("the image is too large");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "the image is too large"));
 
     // Strips or tiles.
     const bool tiled = ifd.has(kTileWidth);
@@ -522,7 +525,7 @@ TiffImage decode(const QByteArray& data)
         blockW = qint64(ifd.value(b, kTileWidth, 0));
         blockH = qint64(ifd.value(b, kTileLength, 0));
         if (blockW <= 0 || blockH <= 0 || blockW > 65536 || blockH > 65536)
-            throw ParseError("the file is corrupt (bad tile size)");
+            throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "the file is corrupt (bad tile size)"));
         offsets = ifd.values(b, kTileOffsets);
         counts = ifd.values(b, kTileByteCounts);
     } else {
@@ -538,11 +541,11 @@ TiffImage decode(const QByteArray& data)
     const qint64 down = (qint64(height) + blockH - 1) / blockH;
     const qint64 blocks = across * down * planes;
     if (qint64(offsets.size()) < blocks)
-        throw ParseError("the file is corrupt (missing strip or tile offsets)");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "the file is corrupt (missing strip or tile offsets)"));
     if (!counts.empty() && qint64(counts.size()) < blocks)
-        throw ParseError("the file is corrupt (missing strip or tile sizes)");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "the file is corrupt (missing strip or tile sizes)"));
     if (counts.empty() && compression != kNone)
-        throw ParseError("the file is corrupt (no strip or tile sizes)");
+        throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "the file is corrupt (no strip or tile sizes)"));
 
     const qint64 blockRowBytes = bits == 1 ? (blockW * chunkSpp + 7) / 8 : blockW * chunkSpp * (bits / 8);
     const bool swap = bits > 8 && predictor != 3 && (big != (QSysInfo::ByteOrder == QSysInfo::BigEndian));
@@ -564,7 +567,7 @@ TiffImage decode(const QByteArray& data)
                 const quint64 offset = offsets[std::size_t(index)];
                 quint64 count = counts.empty() ? quint64(expected) : counts[std::size_t(index)];
                 if (offset > quint64(b.size()))
-                    throw ParseError("the image data is truncated");
+                    throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "the image data is truncated"));
                 count = std::min<quint64>(count, quint64(b.size()) - offset);
                 const uchar* src = b.ptr(qint64(offset), qint64(count));
 
@@ -584,7 +587,7 @@ TiffImage decode(const QByteArray& data)
                     break;
                 }
                 if (block.size() < expected)
-                    throw ParseError("the image data is truncated");
+                    throw ParseError(QT_TRANSLATE_NOOP("iat::TiffReader", "the image data is truncated"));
                 if (compression == kNone)
                     block.detach();  // writable copy of this block only
                 uchar* blockData = reinterpret_cast<uchar*>(block.data());
@@ -638,12 +641,14 @@ TiffImage TiffReader::readFromBytes(const QByteArray& bytes)
         return decode(bytes);
     } catch (const ParseError& e) {
         TiffImage img;
-        img.error = QString::fromStdString(e.what());
+        // Fixed messages are marked with QT_TRANSLATE_NOOP where they are thrown and
+        // translated here; messages with values in them were translated when thrown.
+        img.error = QCoreApplication::translate("iat::TiffReader", e.what());
         img.error[0] = img.error[0].toUpper();
         return img;
     } catch (const std::bad_alloc&) {
         TiffImage img;
-        img.error = QStringLiteral("Not enough memory to read the image");
+        img.error = QCoreApplication::translate("iat::TiffReader", "Not enough memory to read the image");
         return img;
     }
 }

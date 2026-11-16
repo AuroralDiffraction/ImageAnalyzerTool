@@ -2,6 +2,7 @@
 
 #include "io/TiffReader.h"
 
+#include <QCoreApplication>
 #include <QFileInfo>
 #include <QImage>
 #include <QImageReader>
@@ -24,7 +25,11 @@ constexpr double kRed = 0.298936021293775;
 constexpr double kGreen = 0.587043074451121;
 constexpr double kBlue = 0.114020904255103;
 
-const QString kRgbNote = QStringLiteral("colour image converted to grey with rgb2gray weights (0.2989 R + 0.5870 G + 0.1140 B)");
+QString rgbNote()
+{
+    return QCoreApplication::translate(
+        "iat::ImageFileReader", "colour image converted to grey with rgb2gray weights (0.2989 R + 0.5870 G + 0.1140 B)");
+}
 
 QString classFor(ElementType type)
 {
@@ -124,7 +129,7 @@ ImageFrame fromTiff(const TiffImage& t)
             f.data = ImageStack(t.height, t.width, 1, ElementType::Double,
                                 rgbToGreyColumnMajor<T>(src, bytesPerLine, t.width, t.height, spp));
             f.matlabClass = QStringLiteral("double");
-            notes << kRgbNote;
+            notes << rgbNote();
         } else {
             f.data = ImageStack(t.height, t.width, 1, type,
                                 channelColumnMajor<T>(src, bytesPerLine, t.width, t.height, spp, 0));
@@ -132,11 +137,11 @@ ImageFrame fromTiff(const TiffImage& t)
         }
     });
     if (spp > 3 || (spp == 2 && t.photometric != 2))
-        notes << QStringLiteral("extra channels (alpha) ignored");
+        notes << QCoreApplication::translate("iat::ImageFileReader", "extra channels (alpha) ignored");
     if (t.photometric == 0)
-        notes << QStringLiteral("stored as WhiteIsZero; values used as stored");
+        notes << QCoreApplication::translate("iat::ImageFileReader", "stored as WhiteIsZero; values used as stored");
     if (t.pageCount > 1)
-        notes << QStringLiteral("page 1 of %1 (only the first page is read)").arg(t.pageCount);
+        notes << QCoreApplication::translate("iat::ImageFileReader", "page 1 of %1 (only the first page is read)").arg(t.pageCount);
     f.note = notes.join(QStringLiteral("; "));
     return f;
 }
@@ -182,7 +187,7 @@ ImageFrame readWithQt(const QString& path)
                 f.data = ImageStack(h, w, 1, ElementType::Double,
                                     rgbToGreyColumnMajor<quint16>(c.constBits(), c.bytesPerLine(), w, h, 4));
                 f.matlabClass = QStringLiteral("double");
-                notes << kRgbNote;
+                notes << rgbNote();
             }
         } else {
             // Format_RGBA8888 has the byte order R, G, B, A on every platform.
@@ -195,11 +200,11 @@ ImageFrame readWithQt(const QString& path)
                 f.data = ImageStack(h, w, 1, ElementType::Double,
                                     rgbToGreyColumnMajor<quint8>(c.constBits(), c.bytesPerLine(), w, h, 4));
                 f.matlabClass = QStringLiteral("double");
-                notes << kRgbNote;
+                notes << rgbNote();
             }
         }
         if (img.hasAlphaChannel())
-            notes << QStringLiteral("alpha channel ignored");
+            notes << QCoreApplication::translate("iat::ImageFileReader", "alpha channel ignored");
     }
     f.note = notes.join(QStringLiteral("; "));
     return f;
@@ -260,7 +265,7 @@ ImageSequence ImageFileReader::readSequence(const QStringList& input)
     sortNaturally(paths);
     seq.paths = paths;
     if (paths.isEmpty()) {
-        seq.error = QStringLiteral("No image files given.");
+        seq.error = QCoreApplication::translate("iat::ImageFileReader", "No image files given.");
         return seq;
     }
 
@@ -293,7 +298,7 @@ ImageSequence ImageFileReader::readSequence(const QStringList& input)
                 format = f.format;
                 raw.reserve(d.rawData().size() * qsizetype(n));
             } else if (d.rows() != rows || d.cols() != cols) {
-                seq.error = QStringLiteral("%1 is %2 × %3 pixels, but %4 is %5 × %6. All images must have the same size.")
+                seq.error = QCoreApplication::translate("iat::ImageFileReader", "%1 is %2 × %3 pixels, but %4 is %5 × %6. All images must have the same size.")
                                 .arg(QFileInfo(path).fileName())
                                 .arg(d.rows())
                                 .arg(d.cols())
@@ -330,14 +335,14 @@ ImageSequence ImageFileReader::readSequence(const QStringList& input)
         seq.matlabClass = sameClass ? cls : classFor(type);
         seq.format = format;
         if (!sameType)
-            seq.notes << QStringLiteral("files of different types, converted to double");
+            seq.notes << QCoreApplication::translate("iat::ImageFileReader", "files of different types, converted to double");
         for (const QString& note : noteOrder) {
             const int count = noteCounts.value(note);
-            seq.notes << (count == n || n == 1 ? note : QStringLiteral("%1 (%2 of %3 files)").arg(note).arg(count).arg(n));
+            seq.notes << (count == n || n == 1 ? note : QCoreApplication::translate("iat::ImageFileReader", "%1 (%2 of %3 files)").arg(note).arg(count).arg(n));
         }
     } catch (const std::bad_alloc&) {
         seq.data = ImageStack();
-        seq.error = QStringLiteral("Not enough memory to load %1 images.").arg(paths.size());
+        seq.error = QCoreApplication::translate("iat::ImageFileReader", "Not enough memory to load %1 images.").arg(paths.size());
     }
     return seq;
 }
@@ -418,15 +423,15 @@ FileSelection selectFiles(const QStringList& paths, bool allowMultiple)
 
     if (s.files.isEmpty()) {
         if (paths.size() == 1)
-            s.error = QStringLiteral("%1 is not a supported file. Use a .mat file, or TIFF, PNG or JPG images.")
+            s.error = QCoreApplication::translate("iat::ImageFileReader", "%1 is not a supported file. Use a .mat file, or TIFF, PNG or JPG images.")
                           .arg(QFileInfo(paths.first()).fileName());
         else
-            s.error = QStringLiteral("No supported file. Use a .mat file, or TIFF, PNG or JPG images.");
+            s.error = QCoreApplication::translate("iat::ImageFileReader", "No supported file. Use a .mat file, or TIFF, PNG or JPG images.");
     } else if (mats > 1 || (mats == 1 && images > 0)) {
-        s.error = QStringLiteral("Several files can only be loaded together when they are all TIFF, PNG or JPG "
+        s.error = QCoreApplication::translate("iat::ImageFileReader", "Several files can only be loaded together when they are all TIFF, PNG or JPG "
                                  "images. Load one .mat file at a time.");
     } else if (images > 1 && !allowMultiple) {
-        s.error = QStringLiteral("Load one file here. Several images can be combined in the Light frames and "
+        s.error = QCoreApplication::translate("iat::ImageFileReader", "Load one file here. Several images can be combined in the Light frames and "
                                  "Dark frames panels.");
     }
     return s;

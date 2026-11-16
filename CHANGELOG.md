@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 (2026-11-14)
+
+- **Single image mode**: a tab can show one image in one panel, with the same histogram, contrast controls, frame selector and Mean / Std / Noise as before. The app now starts in this mode, and so does every new tab.
+- A slide switch next to the tabs (top right, two icons: one panel / three panels) changes between a single image and the three panels (light, dark and calibrated frames). Every tab has its own mode, and the switch shows the mode of the tab on display.
+- The single image is the tab's light stack: switching to three panels keeps it as the light frames, and switching back shows the light frames on their own. Dark frames and a loaded calibrated image are kept while hidden. Zoom and pan carry over.
+- In single image mode, **File → Open image…** (Ctrl+L) replaces Open light frames…, and exported .mat files use neutral names (`frame`, `mean_frame`, `frames`; file names end in `_frame001`, `_mean`, `_all`). See the README.
+- Command line: `--dark` and `--calibrated` switch the first tab to three panels; `--light` alone opens a single image.
+- **Chinese interface** (简体中文), used by default. **File → Settings…** (文件 → 设置…) has the interface language, Chinese or English; a change takes effect when the app restarts, and the dialog offers to restart it. Error messages from the file readers and writers are translated too. Names in exported .mat files stay as they are.
+- Building now needs Qt's Linguist tools (`lrelease`), which come with a standard Qt installation. The translation is `translations/ImageAnalyzerTool_zh_CN.ts`.
+
 ## 0.2.0 (2026-10-22)
 
 - **Single frame / Mean** toggle in the Light frames and Dark frames panels. The light panel starts in Single frame mode and the dark panel in Mean mode, as before.

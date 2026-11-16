@@ -1,8 +1,11 @@
-// UI smoke test: opens the main window, loads light and dark frames into the
-// first tab, waits for loading to finish and checks the results, the frame
+// UI smoke test: opens the main window and checks single image mode (the
+// default) in the first tab, then switches the tab to three panels, loads
+// dark frames, waits for loading to finish and checks the results, the frame
 // buttons, linked zoom/pan, the clipboard copies and the exports. With the
 // small test files it also checks the Single frame / Mean modes, loading
-// several image files, and a calibrated image loaded from a file.
+// several image files, and a calibrated image loaded from a file. These
+// checks run with the English texts of the source code; at the end the
+// Chinese translation (the app's default language) is installed and checked.
 //
 //   ui_smoke                                  uses the small test files
 //   ui_smoke light.mat dark.mat [shot.png] [frame]
@@ -11,15 +14,20 @@
 // Run headless with QT_QPA_PLATFORM=offscreen.
 
 #include "core/Processing.h"
+#include "io/ImageFileReader.h"
 #include "io/MatFileReader.h"
 #include "ui/AboutDialog.h"
 #include "ui/ImagePanel.h"
 #include "ui/ImageView.h"
+#include "ui/Language.h"
 #include "ui/MainWindow.h"
+#include "ui/ModeSwitch.h"
 #include "ui/SessionTab.h"
+#include "ui/SettingsDialog.h"
 
 #include <QApplication>
 #include <QClipboard>
+#include <QComboBox>
 #include <QDir>
 #include <QDragEnterEvent>
 #include <QDropEvent>
@@ -27,10 +35,13 @@
 #include <QFileInfo>
 #include <QIcon>
 #include <QLabel>
+#include <QMenuBar>
 #include <QMimeData>
+#include <QMouseEvent>
 #include <QPixmap>
 #include <QScrollBar>
 #include <QStatusBar>
+#include <QTabWidget>
 #include <QTemporaryDir>
 #include <QToolButton>
 #include <QUrl>
@@ -110,6 +121,15 @@ static qint64 textLength(const MatFileContents& c, const char* name)
     return v.matlabClass == QLatin1String("char") && v.dims.size() == 2 ? v.dims.at(1) : -1;
 }
 
+// Clicks the single image (left) or three panels (right) side of the switch.
+static void clickSwitch(ModeSwitch* sw, LayoutMode side)
+{
+    const QPointF pos(sw->width() * (side == LayoutMode::Single ? 0.25 : 0.75), sw->height() / 2.0);
+    QMouseEvent press(QEvent::MouseButtonPress, pos, sw->mapToGlobal(pos), Qt::LeftButton, Qt::LeftButton,
+                      Qt::NoModifier);
+    QCoreApplication::sendEvent(sw, &press);
+}
+
 static bool sameImage(const Image2D& a, const Image2D& b)
 {
     if (!a.sameSize(b))
@@ -151,12 +171,101 @@ int main(int argc, char* argv[])
     ImagePanel* lp = tab->lightPanel();
     ImagePanel* dp = tab->darkPanel();
     ImagePanel* cp = tab->calibratedPanel();
-    tab->loadLight(light);
+    ModeSwitch* sw = w.modeSwitch();
+    auto out = [&](const char* name) { return QDir(exportDir).filePath(QLatin1String(name)); };
+
+    // ---- single image mode (the default)
+    std::printf("single image mode\n");
+    QCoreApplication::processEvents();
+    check(tab->layoutMode() == LayoutMode::Single && sw && sw->isVisible() && sw->mode() == LayoutMode::Single,
+          "the app starts in single image mode");
+    check(lp->isVisible() && !dp->isVisible() && !cp->isVisible() && lp->title() == QLatin1String("Image"),
+          "one panel on show, titled Image");
+    check(lp->width() > tab->width() * 0.9, "the panel fills the tab");
+    tab->loadImage(light);
+    if (!waitUntilIdle(w, 120000)) {
+        std::printf("FAIL: loading did not finish\n");
+        return 1;
+    }
+    check(lp->hasImage() && !cp->hasImage() && lp->frameCount() > 0, "the image loads into the panel, with a frame selector");
+    if (useFixtures)
+        check(near(lp->meanStd().mean, 1285.0) && near(lp->meanStd().std, 172.312700247738)
+                  && near(lp->noise(), 1.118033988750), "Mean/Std/Noise match NumPy");
+    {
+        const double autoLow = lp->displayLow();
+        const double autoHigh = lp->displayHigh();
+        lp->fullRangeContrast();
+        check(lp->displayLow() == lp->stats().min && lp->displayHigh() == lp->stats().max, "Full range: min to max");
+        lp->autoContrast();
+        check(lp->displayLow() == autoLow && lp->displayHigh() == autoHigh, "Auto: back to the percentile range");
+    }
+    tab->exportTo(lp, ExportKind::FrameMat, out("single_frame.mat"));
+    tab->exportTo(lp, ExportKind::StackMat, out("single_all.mat"));
+    check(waitUntilIdle(w, 300000), "exports finished");
+    {
+        const MatFileContents sf = MatFileReader::read(out("single_frame.mat"));
+        check(sf.ok() && sameImage(variable(sf, "frame").data.frame(0), lp->image())
+                  && near(scalar(sf, "img_mean"), lp->meanStd().mean) && near(scalar(sf, "img_noise"), lp->noise())
+                  && scalar(sf, "frame_index") == 1.0 && variable(sf, "light_frame").name.isEmpty(),
+              "single_frame.mat: frame + Mean/Std/Noise + frame index");
+        const MatFileContents sa = MatFileReader::read(out("single_all.mat"));
+        const MatFileContents in = MatFileReader::read(light);
+        check(sa.ok() && in.ok() && variable(sa, "frames").data.rawData() == in.imageStacks().first().data.rawData(),
+              "single_all.mat: identical to the input stack");
+    }
+    if (!shot.isEmpty()) {
+        QString singleShot = shot;
+        singleShot.replace(QLatin1String(".png"), QLatin1String("_single.png"));
+        w.statusBar()->clearMessage();
+        if (w.grab().save(singleShot))
+            std::printf("single image mode: %s\n", qPrintable(singleShot));
+    }
+
+    // Zoom in, then switch to three panels with the switch next to the tabs.
+    for (int i = 0; i < 3; ++i) {
+        const QPointF c = QPointF(lp->view()->viewport()->rect().center());
+        QWheelEvent wheel(c, lp->view()->viewport()->mapToGlobal(c), QPoint(), QPoint(0, 120), Qt::NoButton,
+                          Qt::NoModifier, Qt::NoScrollPhase, false);
+        QCoreApplication::sendEvent(lp->view()->viewport(), &wheel);
+    }
+    const Image2D singleImage = lp->image();
+    const double singleZoom = lp->view()->viewState().zoom;
+    clickSwitch(sw, LayoutMode::Triple);
+    waitUntilIdle(w, 5000);
+    check(tab->layoutMode() == LayoutMode::Triple && sw->mode() == LayoutMode::Triple && dp->isVisible()
+              && cp->isVisible() && lp->title() == QLatin1String("Light frames"),
+          "the switch shows the three panels");
+    check(sameImage(lp->image(), singleImage), "the image is kept, as the light frames");
+    check(std::abs(lp->width() - dp->width()) <= 2 && std::abs(dp->width() - cp->width()) <= 2,
+          "the three panels have the same width");
+
     tab->loadDark(dark);
     if (!waitUntilIdle(w, 120000)) {
         std::printf("FAIL: loading did not finish\n");
         return 1;
     }
+    check(!lp->view()->viewState().fit && std::abs(lp->view()->viewState().zoom - singleZoom) < 1e-9
+              && std::abs(dp->view()->viewState().zoom - singleZoom) < 1e-9
+              && std::abs(cp->view()->viewState().zoom - singleZoom) < 1e-9,
+          "the zoom from single image mode carries over to all three views");
+    lp->view()->fitToWindowByUser();
+    QCoreApplication::processEvents();
+
+    // Back to a single image and forth: the hidden calibrated panel catches up.
+    clickSwitch(sw, LayoutMode::Single);
+    waitUntilIdle(w, 5000);
+    check(tab->layoutMode() == LayoutMode::Single && !dp->isVisible() && !cp->isVisible()
+              && lp->title() == QLatin1String("Image") && sameImage(lp->image(), singleImage),
+          "back to the single image");
+    lp->stepFrame(+1);
+    waitUntilIdle(w, 5000);
+    tab->setLayoutMode(LayoutMode::Triple);
+    waitUntilIdle(w, 5000);
+    check(sw->mode() == LayoutMode::Triple && cp->hasImage()
+              && sameImage(cp->image(), processing::subtract(lp->image(), dp->image())),
+          "three panels again: calibrated = the new light frame - dark");
+    lp->setCurrentFrame(0);
+    waitUntilIdle(w, 5000);
     if (frame > 1) {
         lp->setCurrentFrame(frame - 1);
         waitUntilIdle(w, 1000);
@@ -242,7 +351,6 @@ int main(int argc, char* argv[])
 
     // ---- exports
     std::printf("exports (to %s)\n", qPrintable(QDir::toNativeSeparators(exportDir)));
-    auto out = [&](const char* name) { return QDir(exportDir).filePath(QLatin1String(name)); };
     tab->exportTo(lp, ExportKind::FrameMat, out("light_frame.mat"));
     tab->exportTo(lp, ExportKind::StackMat, out("light_all.mat"));
     tab->exportTo(dp, ExportKind::FrameMat, out("dark_mean.mat"));
@@ -286,6 +394,23 @@ int main(int argc, char* argv[])
     SessionTab* second = w.newTab();
     waitUntilIdle(w, 1000);
     check(!second->lightPanel()->hasImage() && w.currentTab() == second, "new tab starts empty");
+    check(second->layoutMode() == LayoutMode::Single && sw->mode() == LayoutMode::Single
+              && tab->layoutMode() == LayoutMode::Triple,
+          "a new tab is in single image mode; the first tab keeps three panels");
+    auto* tabs = w.findChild<QTabWidget*>();
+    tabs->setCurrentIndex(0);
+    QCoreApplication::processEvents();
+    check(sw->mode() == LayoutMode::Triple, "the switch follows the tab on show (three panels)");
+    tabs->setCurrentIndex(1);
+    QCoreApplication::processEvents();
+    check(sw->mode() == LayoutMode::Single, "the switch follows the tab on show (single image)");
+    {
+        const bool accepted = dropFiles(second->lightPanel(), {light});
+        waitUntilIdle(w, 120000);
+        check(accepted && second->lightPanel()->hasImage(), "dropping a .mat file onto the single panel loads it");
+    }
+    second->setLayoutMode(LayoutMode::Triple);
+    waitUntilIdle(w, 1000);
     {
         const bool accepted = dropFiles(second->lightPanel(), {light});
         waitUntilIdle(w, 120000);
@@ -357,6 +482,7 @@ int main(int argc, char* argv[])
         // ---- several image files
         std::printf("image files\n");
         SessionTab* imgTab = w.newTab();
+        imgTab->setLayoutMode(LayoutMode::Triple);
         ImagePanel* ilp = imgTab->lightPanel();
         ImagePanel* idp = imgTab->darkPanel();
         ImagePanel* icp = imgTab->calibratedPanel();
@@ -449,6 +575,65 @@ int main(int argc, char* argv[])
             link = link || (l->text().contains(url) && l->openExternalLinks());
         check(link, "About dialog has a clickable GitHub link");
         aboutShot = about.grab().toImage();
+    }
+
+    // ---- interface language
+    std::printf("language\n");
+    check(language::defaultCode() == QLatin1String("zh_CN") && language::languages().size() == 2
+              && language::activeCode() == QLatin1String("en"),
+          "two languages; Chinese is the default");
+    check(language::install(QStringLiteral("zh_CN")) && language::activeCode() == QLatin1String("zh_CN"),
+          "the Chinese translation is built into the program");
+    {
+        MainWindow zh;
+        zh.resize(1600, 1000);
+        zh.show();
+        QCoreApplication::processEvents();
+        SessionTab* zt = zh.currentTab();
+        const QList<QAction*> menus = zh.menuBar()->actions();
+        check(zt->lightPanel()->title() == QStringLiteral("图像") && !menus.isEmpty()
+                  && menus.first()->text() == QStringLiteral("文件(&F)"),
+              "a window built now has Chinese texts");
+        zt->loadImage(light);
+        waitUntilIdle(zh, 120000);
+        check(zt->lightPanel()->hasImage() && zt->lightPanel()->sourceInfo().contains(QStringLiteral("light"))
+                  && near(zt->lightPanel()->meanStd().mean, lp->frameMode() == FrameMode::Single
+                                                                 ? processing::calculateImageStats(
+                                                                       MatFileReader::read(light).imageStacks().first().data.frame(0)).mean
+                                                                 : zt->lightPanel()->meanStd().mean),
+              "loading and the calculations work the same");
+        if (useFixtures) {
+            const QString paletteTiff = QStringLiteral(IAT_TEST_DATA_DIR "/formats/palette.tif");
+            const QString v73 = QStringLiteral(IAT_TEST_DATA_DIR "/v73_header.mat");
+            check(ImageFileReader::read(paletteTiff).error.contains(QStringLiteral("调色板"))
+                      && MatFileReader::read(v73).error.contains(QStringLiteral("暂不支持")),
+                  "error messages of the file readers are translated");
+        }
+        SettingsDialog settings(&zh);
+        auto* combo = settings.findChild<QComboBox*>();
+        check(combo && combo->count() == 2 && combo->itemText(0) == QStringLiteral("简体中文")
+                  && combo->itemText(1) == QLatin1String("English") && settings.windowTitle() == QStringLiteral("设置"),
+              "Settings lists the languages under their own names");
+        if (!shot.isEmpty()) {
+            QString zhShot = shot;
+            zhShot.replace(QLatin1String(".png"), QLatin1String("_zh_single.png"));
+            zh.statusBar()->clearMessage();
+            zh.grab().save(zhShot);
+            zt->setLayoutMode(LayoutMode::Triple);
+            zt->loadDark(dark);
+            waitUntilIdle(zh, 120000);
+            zhShot.replace(QLatin1String("_zh_single.png"), QLatin1String("_zh.png"));
+            zh.grab().save(zhShot);
+            settings.show();
+            QCoreApplication::processEvents();
+            zhShot.replace(QLatin1String("_zh.png"), QLatin1String("_zh_settings.png"));
+            settings.grab().save(zhShot);
+        }
+    }
+    language::install(QStringLiteral("en"));
+    {
+        MainWindow en;
+        check(en.currentTab()->lightPanel()->title() == QLatin1String("Image"), "English again after switching back");
     }
 
     if (!shot.isEmpty()) {

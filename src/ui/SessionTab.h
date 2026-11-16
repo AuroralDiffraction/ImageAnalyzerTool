@@ -4,6 +4,7 @@
 #include "core/ImageStack.h"
 #include "ui/ImagePanel.h"
 #include "ui/ImageView.h"
+#include "ui/LayoutMode.h"
 
 #include <QStringList>
 #include <QWidget>
@@ -11,6 +12,7 @@
 #include <limits>
 #include <optional>
 
+class QSplitter;
 class QTimer;
 
 namespace iat {
@@ -18,7 +20,18 @@ namespace iat {
 struct MatFileContents;
 struct MatVariable;
 
-// One tab: light frames, dark frames and the calibrated result.
+// One tab, in one of two layouts (LayoutMode, chosen per tab):
+//
+//   Single (the default)  one panel showing one image, with the same
+//                         histogram, contrast controls and Mean / Std / Noise
+//   Triple                light frames, dark frames and the calibrated result
+//
+// The single image is the tab's light stack, shown in the light panel on its
+// own, so switching to three panels keeps it as the light frames, and
+// switching back shows the light frames alone. Dark frames and a loaded
+// calibrated image are kept while their panels are hidden.
+//
+// Three panels:
 //
 // The light and dark panels each show one frame of their stack or the
 // pixel-by-pixel mean over all frames (Single frame / Mean; by default the
@@ -44,6 +57,14 @@ class SessionTab : public QWidget {
     Q_OBJECT
 public:
     explicit SessionTab(QWidget* parent = nullptr);
+
+    LayoutMode layoutMode() const { return m_layout; }
+    void setLayoutMode(LayoutMode mode);
+    bool isSingleImage() const { return m_layout == LayoutMode::Single; }
+
+    // Single image mode: loads the image (the same as loadLight).
+    void loadImage(const QStringList& paths) { loadLight(paths); }
+    void loadImage(const QString& path) { loadLight(QStringList{path}); }
 
     // Loads one .mat file, or one or more TIFF / PNG / JPEG images, which
     // are stacked as frames in natural file-name order.
@@ -75,6 +96,7 @@ public:
     ImagePanel* calibratedPanel() const { return m_calPanel; }
 
 signals:
+    void layoutModeChanged(iat::LayoutMode mode);
     void busyChanged(bool busy);
     void statusMessage(const QString& message);
     // Emitted when an export has finished (error is empty on success).
@@ -138,10 +160,14 @@ private:
     void scheduleCalibratedNoise();
     void startCalibratedNoise();
     void addPending(int delta);
+    void applyLayoutMode();
     void linkViews();
     QStringList openDialog(const QString& title, bool multiple);
     QString defaultExportName(ImagePanel* panel, ExportKind kind) const;
 
+    LayoutMode m_layout = LayoutMode::Single;
+    QSplitter* m_splitter = nullptr;
+    QList<int> m_tripleSizes;  // splitter sizes of the three panels, kept while in single image mode
     ImagePanel* m_lightPanel = nullptr;
     ImagePanel* m_darkPanel = nullptr;
     ImagePanel* m_calPanel = nullptr;
@@ -160,6 +186,10 @@ private:
     double m_calNoise = std::numeric_limits<double>::quiet_NaN();
     bool m_calNoiseValid = false;
     QTimer* m_calNoiseTimer = nullptr;  // waits until the dark frame stops changing
+    // The calibrated panel is not recalculated while it is hidden (single
+    // image mode); it is brought up to date when the three panels come back.
+    bool m_calStale = false;
+    bool m_calStaleResetContrast = false;
 
     ViewState m_sharedView;  // zoom/pan shared by the three views
     int m_pending = 0;

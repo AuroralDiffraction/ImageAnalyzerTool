@@ -1,13 +1,17 @@
 #include "ui/MainWindow.h"
 
 #include "ui/AboutDialog.h"
+#include "ui/ModeSwitch.h"
 #include "ui/SessionTab.h"
+#include "ui/SettingsDialog.h"
 
 #include <QAction>
 #include <QApplication>
+#include <QHBoxLayout>
 #include <QInputDialog>
 #include <QKeySequence>
 #include <QMenuBar>
+#include <QProcess>
 #include <QStatusBar>
 #include <QTabBar>
 #include <QTabWidget>
@@ -27,7 +31,19 @@ MainWindow::MainWindow(QWidget* parent)
     m_tabs->setMovable(true);
     setCentralWidget(m_tabs);
 
-    auto* addButton = new QToolButton(m_tabs);
+    // Next to the tabs: [single image | three panels] switch for the current tab, and +.
+    auto* corner = new QWidget(m_tabs);
+    auto* cornerLayout = new QHBoxLayout(corner);
+    cornerLayout->setContentsMargins(0, 0, 4, 0);
+    cornerLayout->setSpacing(8);
+    m_modeSwitch = new ModeSwitch(corner);
+    cornerLayout->addWidget(m_modeSwitch, 0, Qt::AlignVCenter);
+    connect(m_modeSwitch, &ModeSwitch::modeChanged, this, [this](LayoutMode mode) {
+        if (SessionTab* t = currentTab())
+            t->setLayoutMode(mode);
+    });
+
+    auto* addButton = new QToolButton(corner);
     addButton->setText(QStringLiteral("+"));
     addButton->setAutoRaise(true);
     addButton->setToolTip(tr("New tab (Ctrl+T)"));
@@ -35,8 +51,10 @@ MainWindow::MainWindow(QWidget* parent)
     f.setBold(true);
     f.setPointSizeF(f.pointSizeF() + 3);
     addButton->setFont(f);
-    m_tabs->setCornerWidget(addButton, Qt::TopRightCorner);
+    cornerLayout->addWidget(addButton, 0, Qt::AlignVCenter);
+    m_tabs->setCornerWidget(corner, Qt::TopRightCorner);
     connect(addButton, &QToolButton::clicked, this, &MainWindow::newTab);
+    connect(m_tabs, &QTabWidget::currentChanged, this, [this] { syncModeUi(false); });
 
     connect(m_tabs, &QTabWidget::tabCloseRequested, this, &MainWindow::closeTab);
     connect(m_tabs->tabBar(), &QTabBar::tabBarDoubleClicked, this, [this](int index) {
@@ -48,9 +66,9 @@ MainWindow::MainWindow(QWidget* parent)
 
     createMenus();
 
-    statusBar()->showMessage(
-        tr("Drop a .mat file, or one or more TIFF, PNG or JPG images, onto the Light frames and Dark frames panels."));
     newTab();
+    statusBar()->showMessage(tr("Drop a .mat file, or one or more TIFF, PNG or JPG images, onto the panel. "
+                                "For light, dark and calibrated frames, use the switch at the top right."));
 }
 
 void MainWindow::createMenus()
@@ -61,15 +79,16 @@ void MainWindow::createMenus()
     newTabAction->setShortcut(QKeySequence::AddTab);
 
     file->addSeparator();
-    QAction* openLight = file->addAction(tr("Open &light frames…"), this, [this] {
+    // "Open image…" in single image mode, where the other two are disabled (syncModeUi).
+    m_openLightAction = file->addAction(tr("Open &light frames…"), this, [this] {
         if (SessionTab* t = currentTab()) t->openLightDialog();
     });
-    openLight->setShortcut(QKeySequence(tr("Ctrl+L")));
-    QAction* openDark = file->addAction(tr("Open &dark frames…"), this, [this] {
+    m_openLightAction->setShortcut(QKeySequence(tr("Ctrl+L")));
+    m_openDarkAction = file->addAction(tr("Open &dark frames…"), this, [this] {
         if (SessionTab* t = currentTab()) t->openDarkDialog();
     });
-    openDark->setShortcut(QKeySequence(tr("Ctrl+D")));
-    file->addAction(tr("Open &calibrated image…"), this, [this] {
+    m_openDarkAction->setShortcut(QKeySequence(tr("Ctrl+D")));
+    m_openCalibratedAction = file->addAction(tr("Open &calibrated image…"), this, [this] {
         if (SessionTab* t = currentTab()) t->openCalibratedDialog();
     });
 
@@ -78,6 +97,11 @@ void MainWindow::createMenus()
     closeTabAction->setShortcut(QKeySequence::Close);
     QAction* renameAction = file->addAction(tr("&Rename tab…"), this, [this] { renameTab(m_tabs->currentIndex()); });
     renameAction->setShortcut(QKeySequence(Qt::Key_F2));
+
+    file->addSeparator();
+    QAction* settings = file->addAction(tr("&Settings…"), this, &MainWindow::openSettings);
+    settings->setShortcut(QKeySequence::Preferences);
+    settings->setMenuRole(QAction::PreferencesRole);
 
     file->addSeparator();
     QAction* quit = file->addAction(tr("E&xit"), qApp, &QApplication::closeAllWindows);
@@ -93,6 +117,18 @@ void MainWindow::createMenus()
     help->addAction(tr("About &Qt"), qApp, &QApplication::aboutQt);
 }
 
+void MainWindow::openSettings()
+{
+    SettingsDialog dialog(this);
+    if (dialog.exec() != QDialog::Accepted || !dialog.restartRequested())
+        return;
+    // The language is applied at start-up: start the app again and close this one.
+    if (QProcess::startDetached(QCoreApplication::applicationFilePath(), QStringList()))
+        QApplication::quit();
+    else
+        statusBar()->showMessage(tr("Could not restart. Close the app and open it again to change the language."));
+}
+
 SessionTab* MainWindow::newTab()
 {
     auto* tab = new SessionTab(m_tabs);
@@ -101,7 +137,24 @@ SessionTab* MainWindow::newTab()
     connect(tab, &SessionTab::statusMessage, this, [this](const QString& msg) {
         statusBar()->showMessage(msg, 8000);
     });
+    connect(tab, &SessionTab::layoutModeChanged, this, [this, tab] {
+        if (tab == currentTab())
+            syncModeUi(true);
+    });
+    syncModeUi(false);
     return tab;
+}
+
+void MainWindow::syncModeUi(bool animate)
+{
+    const SessionTab* tab = currentTab();
+    if (!tab)
+        return;
+    const bool single = tab->isSingleImage();
+    m_modeSwitch->setMode(tab->layoutMode(), animate);
+    m_openLightAction->setText(single ? tr("Open &image…") : tr("Open &light frames…"));
+    m_openDarkAction->setEnabled(!single);
+    m_openCalibratedAction->setEnabled(!single);
 }
 
 void MainWindow::closeTab(int index)

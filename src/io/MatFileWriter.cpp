@@ -1,5 +1,6 @@
 #include "io/MatFileWriter.h"
 
+#include <QCoreApplication>
 #include <QDateTime>
 #include <QLocale>
 #include <QRegularExpression>
@@ -144,10 +145,10 @@ bool MatFileWriter::addMatrix(const QString& name, int mxClass, quint32 extraFla
                               quint32 miType, qint64 dataBytes, const std::function<void(char*)>& fill)
 {
     if (!isValidName(name))
-        return fail(QStringLiteral("'%1' is not a valid MATLAB variable name.").arg(name));
+        return fail(QCoreApplication::translate("iat::MatFileWriter", "'%1' is not a valid MATLAB variable name.").arg(name));
     for (qint64 d : dims)
         if (d < 0 || d > std::numeric_limits<qint32>::max())
-            return fail(QStringLiteral("Variable '%1' has an invalid size.").arg(name));
+            return fail(QCoreApplication::translate("iat::MatFileWriter", "Variable '%1' has an invalid size.").arg(name));
 
     const QByteArray latinName = name.toLatin1();
     const qint64 content = 16                                 // array flags
@@ -155,14 +156,14 @@ bool MatFileWriter::addMatrix(const QString& name, int mxClass, quint32 extraFla
                            + elementBytes(latinName.size())   // name
                            + elementBytes(dataBytes);         // real part
     if (content > kMaxVariableBytes)
-        return fail(QStringLiteral("Variable '%1' is larger than 2 GB, the limit of MATLAB -v7 files. "
+        return fail(QCoreApplication::translate("iat::MatFileWriter", "Variable '%1' is larger than 2 GB, the limit of MATLAB -v7 files. "
                                    "Save fewer frames at a time.").arg(name));
 
     QByteArray matrix;
     try {
         matrix = QByteArray(qsizetype(8 + content), Qt::Uninitialized);
     } catch (const std::bad_alloc&) {
-        return fail(QStringLiteral("Not enough memory to save '%1'.").arg(name));
+        return fail(QCoreApplication::translate("iat::MatFileWriter", "Not enough memory to save '%1'.").arg(name));
     }
 
     char* p = matrix.data();
@@ -191,10 +192,10 @@ bool MatFileWriter::addMatrix(const QString& name, int mxClass, quint32 extraFla
     QByteArray z = qCompress(reinterpret_cast<const uchar*>(matrix.constData()), matrix.size(), m_level);
     matrix = QByteArray();
     if (z.size() <= 4)
-        return fail(QStringLiteral("Could not compress '%1' (not enough memory?).").arg(name));
+        return fail(QCoreApplication::translate("iat::MatFileWriter", "Could not compress '%1' (not enough memory?).").arg(name));
     z.remove(0, 4);
     if (qint64(z.size()) > std::numeric_limits<quint32>::max())
-        return fail(QStringLiteral("Variable '%1' is too large.").arg(name));
+        return fail(QCoreApplication::translate("iat::MatFileWriter", "Variable '%1' is too large.").arg(name));
 
     QByteArray element(8, Qt::Uninitialized);
     char* t = element.data();
@@ -222,7 +223,7 @@ bool MatFileWriter::addImage(const QString& name, const Image2D& image)
 bool MatFileWriter::addStack(const QString& name, const ImageStack& stack, const QString& matlabClass)
 {
     if (stack.isNull())
-        return fail(QStringLiteral("Variable '%1' is empty.").arg(name));
+        return fail(QCoreApplication::translate("iat::MatFileWriter", "Variable '%1' is empty.").arg(name));
     const QByteArray& raw = stack.rawData();
     const bool logical = matlabClass == QLatin1String("logical") && stack.elementType() == ElementType::UInt8;
     QVector<qint64> dims{stack.rows(), stack.cols()};
@@ -237,7 +238,7 @@ bool MatFileWriter::addDoubleStack(const QString& name, int rows, int cols, int 
                                    const std::function<void(int, double*)>& fillFrame)
 {
     if (rows <= 0 || cols <= 0 || frames <= 0)
-        return fail(QStringLiteral("Variable '%1' is empty.").arg(name));
+        return fail(QCoreApplication::translate("iat::MatFileWriter", "Variable '%1' is empty.").arg(name));
     const qint64 plane = qint64(rows) * cols;
     QVector<qint64> dims{rows, cols};
     if (frames > 1)
@@ -246,7 +247,7 @@ bool MatFileWriter::addDoubleStack(const QString& name, int rows, int cols, int 
     try {
         buffer.resize(std::size_t(plane));
     } catch (const std::bad_alloc&) {
-        return fail(QStringLiteral("Not enough memory to save '%1'.").arg(name));
+        return fail(QCoreApplication::translate("iat::MatFileWriter", "Not enough memory to save '%1'.").arg(name));
     }
     return addMatrix(name, mxDOUBLE, 0, dims, miDOUBLE, plane * frames * 8, [&](char* d) {
         for (int z = 0; z < frames; ++z) {
@@ -276,16 +277,16 @@ bool MatFileWriter::save(const QString& path)
 {
     QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly))
-        return fail(QStringLiteral("Could not create %1: %2").arg(path, file.errorString()));
+        return fail(QCoreApplication::translate("iat::MatFileWriter", "Could not create %1: %2").arg(path, file.errorString()));
     bool ok = file.write(header()) == 128;
     for (const QByteArray& e : std::as_const(m_elements))
         ok = ok && file.write(e) == e.size();
     if (!ok) {
         file.cancelWriting();
-        return fail(QStringLiteral("Could not write %1: %2").arg(path, file.errorString()));
+        return fail(QCoreApplication::translate("iat::MatFileWriter", "Could not write %1: %2").arg(path, file.errorString()));
     }
     if (!file.commit())
-        return fail(QStringLiteral("Could not save %1: %2").arg(path, file.errorString()));
+        return fail(QCoreApplication::translate("iat::MatFileWriter", "Could not save %1: %2").arg(path, file.errorString()));
     return true;
 }
 
