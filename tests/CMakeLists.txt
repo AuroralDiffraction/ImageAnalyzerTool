@@ -10,6 +10,11 @@ target_compile_definitions(tst_core PRIVATE IAT_TEST_DATA_DIR="${IAT_TEST_DATA_D
                                             IAT_EXAMPLES_DIR="${IAT_EXAMPLES_DIR}")
 add_test(NAME tst_core COMMAND tst_core)
 
+# Unit tests for the image processing pipeline (core/Isp.h).
+qt_add_executable(tst_isp tst_isp.cpp)
+target_link_libraries(tst_isp PRIVATE iacore Qt6::Test)
+add_test(NAME tst_isp COMMAND tst_isp)
+
 # UI smoke test: builds the main window off-screen and loads the test files.
 qt_add_executable(ui_smoke ui_smoke.cpp)
 target_link_libraries(ui_smoke PRIVATE iaui)
@@ -21,6 +26,6 @@ set_tests_properties(ui_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 
 # On Windows the test programs need the Qt DLLs on PATH (CMake 3.22+).
 if(WIN32)
-    set_tests_properties(tst_core ui_smoke PROPERTIES
+    set_tests_properties(tst_core tst_isp ui_smoke PROPERTIES
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${IAT_QT_BIN_DIR}")
 endif()

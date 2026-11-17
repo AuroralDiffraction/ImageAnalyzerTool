@@ -18,6 +18,7 @@ SettingsDialog::SettingsDialog(QWidget* parent)
     setWindowTitle(tr("Settings"));
 
     m_language = new QComboBox(this);
+    m_language->setObjectName(QStringLiteral("language"));
     for (const LanguageInfo& l : language::languages())
         m_language->addItem(l.name, l.code);  // each language under its own name
     setLanguageCode(language::savedCode());
@@ -26,11 +27,18 @@ SettingsDialog::SettingsDialog(QWidget* parent)
     auto* form = new QFormLayout;
     form->addRow(QStringLiteral("语言 / Language"), m_language);
 
+    m_theme = new QComboBox(this);
+    m_theme->setObjectName(QStringLiteral("theme"));
+    m_theme->addItem(tr("Follow the system"), int(theme::Mode::System));
+    m_theme->addItem(tr("Light"), int(theme::Mode::Light));
+    m_theme->addItem(tr("Dark"), int(theme::Mode::Dark));
+    m_theme->setToolTip(tr("Light or dark colours for the whole app. It changes as soon as you click OK."));
+    setThemeMode(theme::savedMode());
+    form->addRow(QStringLiteral("主题 / Theme"), m_theme);
+
     auto* hint = new QLabel(tr("A new language is used after the app restarts."), this);
     hint->setWordWrap(true);
-    QPalette p = hint->palette();
-    p.setColor(QPalette::WindowText, p.color(QPalette::PlaceholderText));
-    hint->setPalette(p);
+    hint->setForegroundRole(QPalette::PlaceholderText);
 
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     connect(buttons, &QDialogButtonBox::accepted, this, &SettingsDialog::accept);
@@ -57,8 +65,26 @@ void SettingsDialog::setLanguageCode(const QString& code)
         m_language->setCurrentIndex(index);
 }
 
+theme::Mode SettingsDialog::themeMode() const
+{
+    return theme::Mode(m_theme->currentData().toInt());
+}
+
+void SettingsDialog::setThemeMode(theme::Mode mode)
+{
+    const int index = m_theme->findData(int(mode));
+    if (index >= 0)
+        m_theme->setCurrentIndex(index);
+}
+
 void SettingsDialog::accept()
 {
+    // The theme needs no restart.
+    const theme::Mode mode = themeMode();
+    theme::saveMode(mode);
+    if (mode != theme::activeMode())
+        theme::apply(mode);
+
     const QString code = languageCode();
     language::saveCode(code);
     if (code != language::activeCode()) {

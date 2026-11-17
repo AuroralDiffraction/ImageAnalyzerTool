@@ -134,6 +134,8 @@ SessionTab::SessionTab(QWidget* parent)
     for (ImagePanel* p : {m_lightPanel, m_darkPanel, m_calPanel}) {
         connect(p, &ImagePanel::exportRequested, this, [this, p](ExportKind kind) { exportFrom(p, kind); });
         connect(p, &ImagePanel::message, this, &SessionTab::statusMessage);
+        // A panel's image processing runs in the background, like loading.
+        connect(p, &ImagePanel::processingChanged, this, [this](bool busy) { addPending(busy ? 1 : -1); });
     }
     linkViews();
 
@@ -782,6 +784,9 @@ void SessionTab::exportTo(ImagePanel* panel, ExportKind kind, const QString& pat
     const PanelRole role = panel->role();
     const bool singleImage = panel->isSingleImage();
     const Image2D image = panel->image();
+    // With image processing on, the image on display is the processed one;
+    // the file then says which stages were applied.
+    const QString processingApplied = panel->processingSummary();
     const processing::MeanStd ms = panel->meanStd();
     const double noise = panel->noise();
     const bool lightMean = m_lightPanel->frameMode() == FrameMode::Mean;
@@ -888,6 +893,8 @@ void SessionTab::exportTo(ImagePanel* panel, ExportKind kind, const QString& pat
                         && w.addString(QStringLiteral("dark_file"), darkFile);
                 break;
             }
+            if (ok && kind == ExportKind::FrameMat && !processingApplied.isEmpty())
+                ok = w.addString(QStringLiteral("processing"), processingApplied);
             if (!ok || !w.save(path))
                 return w.errorString();
             return QString();

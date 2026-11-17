@@ -4,6 +4,8 @@
 #include <QGraphicsPixmapItem>
 #include <QGraphicsScene>
 #include <QMouseEvent>
+#include <QPainter>
+#include <QPainterPath>
 #include <QPixmap>
 #include <QScrollBar>
 #include <QWheelEvent>
@@ -16,6 +18,7 @@ namespace iat {
 namespace {
 constexpr double kMinZoom = 0.01;
 constexpr double kMaxZoom = 64.0;
+constexpr int kDividerGrab = 9;  // pixels either side of the A/B divider that grab it
 
 // Marks a block in which the view changes its own zoom/pan, so the scroll
 // bar changes it causes are not reported as user actions.
@@ -82,11 +85,136 @@ void ImageView::setImage(const QImage& image)
 void ImageView::clearImage()
 {
     InternalChange guard(m_internal);
+    setCompareImage(QImage());
     m_item->setPixmap(QPixmap());
     m_imageSize = QSize();
     m_fitMode = true;
     resetTransform();
 }
+
+// ---------------------------------------------------------------------------
+// A/B comparison
+// ---------------------------------------------------------------------------
+
+void ImageView::setCompareImage(const QImage& before)
+{
+    const bool was = hasCompareImage();
+    m_before = before.isNull() ? QPixmap() : QPixmap::fromImage(before);
+    if (was != hasCompareImage()) {
+        // The divider and its labels are drawn at fixed places in the
+        // window, so the view must not scroll its pixels while it is on.
+        setViewportUpdateMode(hasCompareImage() ? QGraphicsView::FullViewportUpdate
+                                                : QGraphicsView::MinimalViewportUpdate);
+        if (!hasCompareImage()) {
+            m_draggingDivider = false;
+            viewport()->setCursor(Qt::CrossCursor);
+        }
+    }
+    viewport()->update();
+}
+
+void ImageView::setComparePosition(double position)
+{
+    position = std::clamp(position, 0.0, 1.0);
+    if (position == m_comparePos)
+        return;
+    m_comparePos = position;
+    if (hasCompareImage())
+        viewport()->update();
+}
+
+QRect ImageView::visibleImageRect() const
+{
+    if (!hasImage())
+        return {};
+    return mapFromScene(sceneRect()).boundingRect().intersected(viewport()->rect());
+}
+
+int ImageView::compareDividerX() const
+{
+    const QRect vis = visibleImageRect();
+    if (!hasCompareImage() || vis.isEmpty())
+        return -1;
+    return vis.left() + int(std::lround(m_comparePos * vis.width()));
+}
+
+bool ImageView::nearDivider(const QPoint& viewportPos) const
+{
+    const int x = compareDividerX();
+    return x >= 0 && std::abs(viewportPos.x() - x) <= kDividerGrab;
+}
+
+void ImageView::drawForeground(QPainter* painter, const QRectF& rect)
+{
+    QGraphicsView::drawForeground(painter, rect);
+    const QRect vis = visibleImageRect();
+    if (!hasCompareImage() || vis.isEmpty())
+        return;
+    const int x = compareDividerX();
+
+    // A: the "before" image over everything left of the divider.
+    if (x > vis.left()) {
+        painter->save();
+        const QRectF left = mapToScene(QRect(vis.left(), vis.top(), x - vis.left(), vis.height())).boundingRect();
+        painter->setClipRect(left.intersected(sceneRect()));
+        painter->setRenderHint(QPainter::SmoothPixmapTransform, transform().m11() < 1.0);
+        painter->drawPixmap(sceneRect(), m_before, QRectF(m_before.rect()));
+        painter->restore();
+    }
+
+    // The divider, its handle and the A / B labels, in window coordinates.
+    painter->save();
+    painter->resetTransform();
+    painter->setRenderHint(QPainter::Antialiasing);
+    const QColor light(255, 255, 255, 235), dark(0, 0, 0, 150);
+    painter->setPen(QPen(dark, 4));
+    painter->drawLine(QPointF(x, vis.top()), QPointF(x, vis.bottom() + 1));
+    painter->setPen(QPen(light, 1.6));
+    painter->drawLine(QPointF(x, vis.top()), QPointF(x, vis.bottom() + 1));
+
+    const QPointF c(x, vis.center().y());
+    painter->setPen(QPen(dark, 1.5));
+    painter->setBrush(light);
+    painter->drawEllipse(c, 11, 11);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(QColor(40, 40, 40));
+    QPolygonF leftArrow, rightArrow;
+    leftArrow << c + QPointF(-7, 0) << c + QPointF(-2.5, -4) << c + QPointF(-2.5, 4);
+    rightArrow << c + QPointF(7, 0) << c + QPointF(2.5, -4) << c + QPointF(2.5, 4);
+    painter->drawPolygon(leftArrow);
+    painter->drawPolygon(rightArrow);
+
+    QFont f = font();
+    f.setBold(true);
+    painter->setFont(f);
+    const QFontMetrics fm(f);
+    const int side = fm.height() + 6;
+    const auto badge = [&](const QString& text, const QRectF& r) {
+        if (r.left() < vis.left() || r.right() > vis.right() + 1)
+            return;  // no room on that side of the divider
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(dark);
+        painter->drawRoundedRect(r, 4, 4);
+        painter->setPen(light);
+        painter->drawText(r, Qt::AlignCenter, text);
+    };
+    badge(QStringLiteral("A"), QRectF(x - 8 - side, vis.top() + 8, side, side));
+    badge(QStringLiteral("B"), QRectF(x + 8, vis.top() + 8, side, side));
+    painter->restore();
+}
+
+void ImageView::mousePressEvent(QMouseEvent* event)
+{
+    if (event->button() == Qt::LeftButton && nearDivider(event->position().toPoint())) {
+        m_draggingDivider = true;  // drag the divider, not the image
+        viewport()->setCursor(Qt::SplitHCursor);
+        event->accept();
+        return;
+    }
+    QGraphicsView::mousePressEvent(event);
+}
+
+// ---------------------------------------------------------------------------
 
 ViewState ImageView::viewState() const
 {
@@ -178,10 +306,20 @@ void ImageView::wheelEvent(QWheelEvent* event)
 
 void ImageView::mouseMoveEvent(QMouseEvent* event)
 {
-    QGraphicsView::mouseMoveEvent(event);
+    const QPoint pos = event->position().toPoint();
+    if (m_draggingDivider) {
+        const QRect vis = visibleImageRect();
+        if (!vis.isEmpty())
+            setComparePosition(double(pos.x() - vis.left()) / double(vis.width()));
+        event->accept();
+    } else {
+        QGraphicsView::mouseMoveEvent(event);
+        if (hasCompareImage() && event->buttons() == Qt::NoButton)
+            viewport()->setCursor(nearDivider(pos) ? Qt::SplitHCursor : Qt::CrossCursor);
+    }
     if (!hasImage())
         return;
-    const QPointF p = mapToScene(event->position().toPoint());
+    const QPointF p = mapToScene(pos);
     const int x = int(std::floor(p.x()));
     const int y = int(std::floor(p.y()));
     if (x >= 0 && y >= 0 && x < m_imageSize.width() && y < m_imageSize.height())
@@ -192,12 +330,23 @@ void ImageView::mouseMoveEvent(QMouseEvent* event)
 
 void ImageView::mouseReleaseEvent(QMouseEvent* event)
 {
+    if (m_draggingDivider && event->button() == Qt::LeftButton) {
+        m_draggingDivider = false;
+        viewport()->setCursor(nearDivider(event->position().toPoint()) ? Qt::SplitHCursor : Qt::CrossCursor);
+        event->accept();
+        return;
+    }
     QGraphicsView::mouseReleaseEvent(event);
     viewport()->setCursor(Qt::CrossCursor);  // the base class puts the open hand back after a drag
 }
 
 void ImageView::mouseDoubleClickEvent(QMouseEvent* event)
 {
+    if (event->button() == Qt::LeftButton && nearDivider(event->position().toPoint())) {
+        setComparePosition(0.5);  // double-click on the divider: back to the middle
+        event->accept();
+        return;
+    }
     if (event->button() == Qt::LeftButton) {
         fitToWindowByUser();
         event->accept();

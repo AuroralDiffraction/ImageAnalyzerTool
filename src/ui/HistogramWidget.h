@@ -27,7 +27,9 @@ public:
     // Paints the widget exactly as it looks on screen (same colours, fonts,
     // proportions, markers and log setting), scaled to `width` pixels wide,
     // with its top-left corner at `topLeft`. Returns the height used.
-    double paintAsShown(QPainter& p, const QPointF& topLeft, double width) const;
+    // With `palette`, those colours are used instead of the widget's own
+    // (for a figure on white while the app has a dark theme).
+    double paintAsShown(QPainter& p, const QPointF& topLeft, double width, const QPalette* palette = nullptr) const;
 
     QSize sizeHint() const override { return {320, 120}; }
     QSize minimumSizeHint() const override { return {120, 80}; }

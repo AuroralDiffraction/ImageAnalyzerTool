@@ -2,6 +2,7 @@
 #include "ui/Language.h"
 #include "ui/MainWindow.h"
 #include "ui/SessionTab.h"
+#include "ui/Theme.h"
 
 #include <QApplication>
 #include <QCommandLineParser>
@@ -19,6 +20,10 @@ int main(int argc, char* argv[])
     // Interface language: Chinese unless another one was chosen in File > Settings.
     // Installed before anything else, since texts are translated where they are created.
     iat::language::install(iat::language::savedCode());
+
+    // Look: the Windows 11 style where Qt has it, and light or dark colours
+    // as chosen in File > Settings (the system's preference by default).
+    iat::theme::apply(iat::theme::savedMode());
 
     // Window and taskbar icon (the .exe's own icon comes from the Windows resource file).
     QIcon icon;

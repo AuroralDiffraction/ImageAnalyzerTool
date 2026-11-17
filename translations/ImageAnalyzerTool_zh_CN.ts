@@ -4,7 +4,7 @@
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../src/ui/ImagePanel.cpp" line="+65"/>
+        <location filename="../src/ui/ImagePanel.cpp" line="+74"/>
         <source>Image</source>
         <translation>图像</translation>
     </message>
@@ -233,12 +233,12 @@ drop a .mat, TIFF, PNG or JPG file here.</source>
 <context>
     <name>iat::ImagePanel</name>
     <message>
-        <location filename="../src/ui/ImagePanel.cpp" line="+80"/>
+        <location filename="../src/ui/ImagePanel.cpp" line="+146"/>
         <source>Auto calibration off</source>
         <translation>自动校准已关闭</translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+17"/>
         <source>This panel shows an image loaded from a file, so it is not calculated from
 the light and dark frames.
 
@@ -261,12 +261,17 @@ Click to remove the loaded image and turn automatic calibration
         <translation>均值</translation>
     </message>
     <message>
-        <location line="+25"/>
+        <location line="+27"/>
+        <source>Processing…</source>
+        <translation>图像处理…</translation>
+    </message>
+    <message>
+        <location line="+16"/>
         <source>Load…</source>
         <translation>加载…</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+5"/>
         <source>Open a calibrated image: a .mat, TIFF, PNG or JPG file (or drop one onto this panel).
 Automatic calibration then turns off.</source>
         <translation>打开校准图像：.mat、TIFF、PNG 或 JPG 文件（也可以拖放到此面板）。
@@ -351,24 +356,24 @@ Automatic calibration then turns off.</source>
     </message>
     <message>
         <location line="+26"/>
-        <location line="+526"/>
+        <location line="+814"/>
         <source>Mean [DN]</source>
         <translation>均值 [DN]</translation>
     </message>
     <message>
-        <location line="-525"/>
-        <location line="+525"/>
+        <location line="-813"/>
+        <location line="+813"/>
         <source>Std [DN]</source>
         <translation>标准差 [DN]</translation>
     </message>
     <message>
-        <location line="-524"/>
-        <location line="+524"/>
+        <location line="-812"/>
+        <location line="+812"/>
         <source>Noise [DN]</source>
         <translation>噪声 [DN]</translation>
     </message>
     <message>
-        <location line="-507"/>
+        <location line="-795"/>
         <source>Export</source>
         <translation>导出</translation>
     </message>
@@ -395,17 +400,23 @@ Noise, or all frames of the stack behind this panel</source>
         <translation>所有帧…</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+9"/>
         <source>Image (.png)</source>
         <translation>图像 (.png)</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+6"/>
         <source>Save the image as displayed (current contrast, full resolution) to a PNG file</source>
         <translation>将当前显示的图像（当前对比度、完整分辨率）保存为 PNG 文件</translation>
     </message>
     <message>
-        <location line="+53"/>
+        <location line="+41"/>
+        <location line="+457"/>
+        <source>Image processing: %1</source>
+        <translation>图像处理：%1</translation>
+    </message>
+    <message>
+        <location line="-440"/>
         <source>Show one frame of the stack: %1(:, :, k).
 Choose the frame below the image.</source>
         <translation>显示堆栈中的一帧：%1(:, :, k)。
@@ -417,12 +428,12 @@ Choose the frame below the image.</source>
         <translation>显示所有帧的逐像素均值：mean(%1, 3)</translation>
     </message>
     <message>
-        <location line="+22"/>
+        <location line="+40"/>
         <source>The image has no finite values (all NaN or Inf).</source>
         <translation>图像中没有有限值（全部为 NaN 或 Inf）。</translation>
     </message>
     <message>
-        <location line="+86"/>
+        <location line="+105"/>
         <source>of %1</source>
         <translation>/ %1</translation>
     </message>
@@ -464,7 +475,7 @@ calculateImageStats: std(double(img), 1, &quot;all&quot;)</source>
 calculateImageStats: std(double(img), 1, &quot;all&quot;)</translation>
     </message>
     <message>
-        <location line="+81"/>
+        <location line="+95"/>
         <source>n/a</source>
         <translation>不适用</translation>
     </message>
@@ -479,7 +490,32 @@ calculateImageStats: std(double(img), 1, &quot;all&quot;)</translation>
         <translation> · %1 个 NaN/Inf 像素（此时均值和标准差为 NaN，与 MATLAB 一致）</translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="+3"/>
+        <source> · processed</source>
+        <translation> · 已处理</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>%1
+
+Image processing is on, so the histogram, Mean, Std, Min and Max describe the processed image%2:
+%3
+
+Noise is still the temporal noise of the unprocessed frames.</source>
+        <translation>%1
+
+图像处理已开启，因此直方图、均值、标准差、最小值和最大值描述的是处理后的图像%2：
+%3
+
+噪声仍是未处理帧的时域噪声。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source> (display values, 0 to 255)</source>
+        <translation>（显示值，0 到 255）</translation>
+    </message>
+    <message>
+        <location line="+12"/>
         <source>Calculating the temporal noise …</source>
         <translation>正在计算时域噪声…</translation>
     </message>
@@ -582,12 +618,65 @@ sqrt(mean(var(light − D, 1, 3), &quot;all&quot;))
         <translation>悬停读取像素值 · 滚轮缩放 · 双击适应窗口 · 右键复制</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+5"/>
+        <source>Row %1, Col %2:  %3  (unprocessed %4)</source>
+        <translation>行 %1，列 %2：  %3  （未处理 %4）</translation>
+    </message>
+    <message>
+        <location line="+6"/>
         <source>Row %1, Col %2:  %3</source>
         <translation>行 %1，列 %2：  %3</translation>
     </message>
     <message>
-        <location line="+100"/>
+        <location line="+91"/>
+        <source>Image processing for this panel: defect pixel and line correction, denoising,
+dynamic range compression, tone mapping, detail enhancement and sharpening,
+as a chain of stages that can each be turned on or bypassed.</source>
+        <translation>本面板的图像处理：坏点与坏行/坏列校正、降噪、
+动态范围压缩、色调映射、细节增强和锐化，
+以一串可逐个开启或旁路的处理阶段呈现。</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>
+
+Showing the original image. Set up: %1</source>
+        <translation>
+
+正在显示原始图像。已设置：%1</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>
+
+On: %1</source>
+        <translation>
+
+已开启：%1</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>A/B comparison: shows a divider on the image. Left of it (A) is the unprocessed
+image, right of it (B) the processed one. Drag the divider across the image;
+double-click it to put it back in the middle.</source>
+        <translation>A/B 对比：在图像上显示一条分隔线。分隔线左侧 (A) 为未处理的图像，
+右侧 (B) 为处理后的图像。可在图像上左右拖动分隔线；
+双击分隔线可使其回到中间。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>A/B comparison of the unprocessed and the processed image.
+Turn on a stage under Processing… first.</source>
+        <translation>未处理图像与处理后图像的 A/B 对比。
+请先在“图像处理…”中开启某个阶段。</translation>
+    </message>
+    <message>
+        <location line="+74"/>
+        <source>Image processing failed (not enough memory?). Showing the unprocessed image.</source>
+        <translation>图像处理失败（内存不足？）。显示未处理的图像。</translation>
+    </message>
+    <message>
+        <location line="+127"/>
         <source>Display range %1 to %2 · Min %3 · Max %4 · %5×%6 px</source>
         <translation>显示范围 %1 至 %2 · 最小 %3 · 最大 %4 · %5×%6 像素</translation>
     </message>
@@ -595,6 +684,11 @@ sqrt(mean(var(light − D, 1, 3), &quot;all&quot;))
         <location line="+5"/>
         <source> · noise over %1 frames</source>
         <translation> · %1 帧的噪声</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source> · processed: %1</source>
+        <translation> · 已处理：%1</translation>
     </message>
     <message>
         <location line="+13"/>
@@ -646,6 +740,11 @@ sqrt(mean(var(light − D, 1, 3), &quot;all&quot;))
         <location line="+2"/>
         <source>Fit to window</source>
         <translation>适应窗口</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Image processing…</source>
+        <translation>图像处理…</translation>
     </message>
 </context>
 <context>
@@ -971,9 +1070,124 @@ sqrt(mean(var(light − D, 1, 3), &quot;all&quot;))
     </message>
 </context>
 <context>
+    <name>iat::PipelineDialog</name>
+    <message>
+        <location filename="../src/ui/PipelineDialog.cpp" line="+308"/>
+        <source>Image processing</source>
+        <translation>图像处理</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>The image passes through the stages from left to right. Use the switch on a stage to turn it on or to bypass it; click a stage to choose its algorithm and settings.</source>
+        <translation>图像从左到右依次通过各个阶段。用阶段上的开关开启或旁路该阶段；点击阶段可选择其算法和参数。</translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Input</source>
+        <translation>输入</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Output</source>
+        <translation>输出</translation>
+    </message>
+    <message>
+        <location line="+27"/>
+        <source>Enabled</source>
+        <translation>启用</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Turn this stage on. When it is off, the image passes through unchanged (bypass).</source>
+        <translation>开启此阶段。关闭时图像原样通过（旁路）。</translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Algorithm</source>
+        <translation>算法</translation>
+    </message>
+    <message>
+        <location line="+38"/>
+        <source>Presets</source>
+        <translation>预设</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Ready-made settings for common situations. A preset replaces all settings.</source>
+        <translation>针对常见情况的现成设置。预设会替换全部设置。</translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Reset stage</source>
+        <translation>重置阶段</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Default settings for the selected stage, and bypass it</source>
+        <translation>将所选阶段恢复为默认设置并旁路</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Reset all</source>
+        <translation>全部重置</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Default settings for every stage, all bypassed: the image is shown unprocessed</source>
+        <translation>所有阶段恢复默认设置并全部旁路：显示未处理的图像</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Show original</source>
+        <translation>显示原图</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Show the unprocessed image, keeping all settings, to compare before and after</source>
+        <translation>显示未处理的图像并保留全部设置，便于对比处理前后</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>A/B comparison: shows a divider on the panel&apos;s image. Left of it (A) is the unprocessed
+image, right of it (B) the processed one. Drag the divider across the image.</source>
+        <translation>A/B 对比：在面板的图像上显示一条分隔线。分隔线左侧 (A) 为未处理的图像，
+右侧 (B) 为处理后的图像。可在图像上左右拖动分隔线。</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <location line="+150"/>
+        <source>Bypassed</source>
+        <translation>已旁路</translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Showing the original image</source>
+        <translation>正在显示原始图像</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Every stage is bypassed: the image is shown unprocessed</source>
+        <translation>所有阶段均已旁路：显示未处理的图像</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Processing …</source>
+        <translation>正在处理…</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Processed in %1 ms</source>
+        <translation>处理用时 %1 ms</translation>
+    </message>
+</context>
+<context>
     <name>iat::SessionTab</name>
     <message>
-        <location filename="../src/ui/SessionTab.cpp" line="+161"/>
+        <location filename="../src/ui/SessionTab.cpp" line="+163"/>
         <location line="+248"/>
         <source>image</source>
         <translation>图像</translation>
@@ -1320,7 +1534,7 @@ Load files with the same X × Y size.</source>
         <translation>无法写入 %1。</translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location line="+36"/>
         <source>Saving %1 …</source>
         <translation>正在保存 %1…</translation>
     </message>
@@ -1333,12 +1547,32 @@ Load files with the same X × Y size.</source>
         <translation>设置</translation>
     </message>
     <message>
-        <location line="+11"/>
+        <location line="+14"/>
+        <source>Follow the system</source>
+        <translation>跟随系统</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Light</source>
+        <translation>浅色</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Dark</source>
+        <translation>深色</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Light or dark colours for the whole app. It changes as soon as you click OK.</source>
+        <translation>整个应用使用浅色或深色配色。点击“确定”后立即生效。</translation>
+    </message>
+    <message>
+        <location line="+4"/>
         <source>A new language is used after the app restarts.</source>
         <translation>新的语言在程序重新启动后生效。</translation>
     </message>
     <message>
-        <location line="+36"/>
+        <location line="+52"/>
         <source>Restart to change the language</source>
         <translation>重新启动以切换语言</translation>
     </message>
@@ -1553,9 +1787,911 @@ Restarting closes all tabs; images that are loaded are not kept.</source>
     </message>
 </context>
 <context>
+    <name>iat::isp</name>
+    <message>
+        <location filename="../src/core/Isp.cpp" line="+89"/>
+        <source>px</source>
+        <translation>像素</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>× noise σ</source>
+        <translation>× 噪声 σ</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>×</source>
+        <translation>×</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>stops</source>
+        <translation>档</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Negative values</source>
+        <translation>负值</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Clip at 0</source>
+        <translation>截断为 0</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Keep</source>
+        <translation>保留</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Correct</source>
+        <translation>校正</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Hot and dead pixels</source>
+        <translation>亮点和暗点</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Hot pixels only</source>
+        <translation>仅亮点</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Dead pixels only</source>
+        <translation>仅暗点</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Direction</source>
+        <translation>方向</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Rows and columns</source>
+        <translation>行和列</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Rows</source>
+        <translation>行</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Columns</source>
+        <translation>列</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Output depth</source>
+        <translation>输出位深</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <location line="+186"/>
+        <source>8-bit</source>
+        <translation>8 位</translation>
+    </message>
+    <message>
+        <location line="-186"/>
+        <source>6-bit</source>
+        <translation>6 位</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>4-bit</source>
+        <translation>4 位</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <location line="+1"/>
+        <location line="+5"/>
+        <source>Black level</source>
+        <translation>黑电平</translation>
+    </message>
+    <message>
+        <location line="-4"/>
+        <source>Subtracts the sensor&apos;s pedestal, so that no light reads as zero.</source>
+        <translation>减去传感器的基底电平，使无光时读数为零。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Fixed value</source>
+        <translation>固定值</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Subtracts a constant: the black level from the sensor&apos;s data sheet, or the mean of your dark frames.</source>
+        <translation>减去一个常数：传感器数据手册给出的黑电平，或暗场帧的均值。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Automatic (low percentile)</source>
+        <translation>自动（低百分位）</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Uses a low percentile of the image as the black level. Only right when part of the image is truly dark.</source>
+        <translation>以图像的某个低百分位值作为黑电平。仅当图像中确有全暗区域时才正确。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Percentile</source>
+        <translation>百分位</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+1"/>
+        <source>Defect pixels</source>
+        <translation>坏点校正</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Replaces hot, dead and stuck pixels with a value from their neighbours.</source>
+        <translation>用邻域像素的值替换亮点、暗点和固定值坏点。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Neighbour min / max</source>
+        <translation>邻域最小 / 最大值</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>A pixel brighter than its brightest neighbour, or darker than its darkest, by more than the threshold is replaced by the median of the 8 neighbours. Leaves edges and thin lines alone. In textured areas the threshold rises with the local contrast.</source>
+        <translation>若像素比最亮的邻点还亮、或比最暗的邻点还暗，且超出量大于阈值，则用 8 个邻点的中值替换。不影响边缘和细线。在纹理区域，阈值随局部对比度升高。</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+8"/>
+        <location line="+14"/>
+        <location line="+168"/>
+        <source>Threshold</source>
+        <translation>阈值</translation>
+    </message>
+    <message>
+        <location line="-188"/>
+        <source>Median threshold</source>
+        <translation>中值阈值</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>A pixel that differs from the median of its 8 neighbours by more than the threshold is replaced by that median. Also catches pairs of defects, but can remove single-pixel detail such as stars. In textured areas the threshold rises with the local contrast.</source>
+        <translation>若像素与其 8 个邻点中值之差超过阈值，则用该中值替换。也能处理成对的坏点，但可能去掉星点之类的单像素细节。在纹理区域，阈值随局部对比度升高。</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Defect rows / columns</source>
+        <translation>坏行 / 坏列校正</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Defect lines</source>
+        <translation>坏行坏列</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Repairs whole rows or columns that are dead, hot or offset from their neighbours.</source>
+        <translation>修复整行或整列失效、过亮或相对邻行（列）存在偏移的情况。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Replace defective lines</source>
+        <translation>替换坏行 / 坏列</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>A row or column that stands out from the lines on both sides of it (by more than the threshold, and by more than the pixel noise) is rebuilt by interpolating between the nearest good lines. Edges in the picture are left alone.</source>
+        <translation>若某行或某列同时偏离其两侧的行（列），且偏离量超过阈值并大于像素噪声，则用最近的正常行（列）插值重建。图像中的边缘不受影响。</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>× spread</source>
+        <translation>× 离散度</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Remove line offsets (destripe)</source>
+        <translation>去除行 / 列偏移（去条纹）</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Subtracts from every row or column its offset from a running median of the lines around it. Removes banding and row / column fixed-pattern noise.</source>
+        <translation>从每一行或每一列中减去它相对周围行（列）滑动中值的偏移。可去除条带以及行 / 列固定模式噪声。</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+40"/>
+        <source>Window</source>
+        <translation>窗口</translation>
+    </message>
+    <message>
+        <location line="-39"/>
+        <source>lines</source>
+        <translation>行</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <location line="+34"/>
+        <location line="+25"/>
+        <location line="+25"/>
+        <source>Strength</source>
+        <translation>强度</translation>
+    </message>
+    <message>
+        <location line="-81"/>
+        <source>Digital gain</source>
+        <translation>数字增益</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <location line="+4"/>
+        <source>Gain</source>
+        <translation>增益</translation>
+    </message>
+    <message>
+        <location line="-3"/>
+        <source>Multiplies every pixel by the same factor.</source>
+        <translation>将每个像素乘以同一个系数。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Manual</source>
+        <translation>手动</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Multiplies by a fixed gain.</source>
+        <translation>乘以固定增益。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Automatic (mean to target)</source>
+        <translation>自动（均值到目标值）</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Chooses the gain that brings the image mean to a target value, as auto exposure does.</source>
+        <translation>选择使图像均值达到目标值的增益，类似自动曝光。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Target mean</source>
+        <translation>目标均值</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <location line="+1"/>
+        <source>Denoise</source>
+        <translation>降噪</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Reduces pixel noise. Strengths are relative to the noise level estimated from the image.</source>
+        <translation>降低像素噪声。强度以从图像估计出的噪声水平为基准。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Bilateral filter</source>
+        <translation>双边滤波</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Averages only neighbours of similar value, so noise is smoothed while edges stay sharp.</source>
+        <translation>只对数值相近的邻点取平均，因此在平滑噪声的同时保持边缘清晰。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Spatial radius (σ)</source>
+        <translation>空间半径 (σ)</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Range</source>
+        <translation>值域</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Guided filter</source>
+        <translation>引导滤波</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Edge-preserving smoothing from local linear models. Fast at any radius, without the bilateral filter&apos;s gradient artefacts.</source>
+        <translation>基于局部线性模型的保边平滑。任意半径下都很快，且没有双边滤波的梯度伪影。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <location line="+111"/>
+        <source>Radius</source>
+        <translation>半径</translation>
+    </message>
+    <message>
+        <location line="-110"/>
+        <location line="+27"/>
+        <location line="+56"/>
+        <location line="+29"/>
+        <source>Edge threshold</source>
+        <translation>边缘阈值</translation>
+    </message>
+    <message>
+        <location line="-111"/>
+        <source>Non-local means</source>
+        <translation>非局部均值</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Averages pixels whose surrounding patches look alike, anywhere in a search window. Keeps texture best; the slowest choice.</source>
+        <translation>在搜索窗口内，对周围图像块相似的像素取平均。纹理保留得最好，但速度最慢。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Search radius</source>
+        <translation>搜索半径</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Patch</source>
+        <translation>图像块</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Median filter</source>
+        <translation>中值滤波</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Each pixel becomes the median of its neighbourhood. Best for impulse (salt-and-pepper) noise; keeps edges but rounds corners.</source>
+        <translation>每个像素取其邻域的中值。最适合脉冲（椒盐）噪声；保留边缘，但会使拐角变圆。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Gaussian blur</source>
+        <translation>高斯模糊</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Weighted average of the neighbourhood. Fast, but blurs edges as much as noise.</source>
+        <translation>邻域加权平均。速度快，但边缘会和噪声一样被模糊。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <location line="+115"/>
+        <source>Radius (σ)</source>
+        <translation>半径 (σ)</translation>
+    </message>
+    <message>
+        <location line="-112"/>
+        <source>Dynamic range compression</source>
+        <translation>动态范围压缩</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Dynamic range</source>
+        <translation>动态范围</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Reduces the contrast between bright and dark regions so that both fit the display. The result stays in DN, ready for tone mapping.</source>
+        <translation>减小亮区与暗区之间的反差，使两者都能在显示范围内呈现。结果仍以 DN 为单位，可再进行色调映射。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Local (base / detail)</source>
+        <translation>局部（基础层 / 细节层）</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>In log space an edge-preserving filter separates a smooth base from the detail. Only the base is compressed, so textures keep their contrast.</source>
+        <translation>在对数域中用保边滤波把平滑的基础层与细节层分开。只压缩基础层，因此纹理的对比度得以保留。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <location line="+55"/>
+        <source>Base contrast</source>
+        <translation>基础层对比度</translation>
+    </message>
+    <message>
+        <location line="-54"/>
+        <location line="+56"/>
+        <source>Filter radius</source>
+        <translation>滤波半径</translation>
+    </message>
+    <message>
+        <location line="-54"/>
+        <source>Global log curve</source>
+        <translation>全局对数曲线</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>out = log(1 + a·x) / log(1 + a): equal ratios of input become roughly equal steps of output.</source>
+        <translation>out = log(1 + a·x) / log(1 + a)：输入的等比变化大致变为输出的等差变化。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Global gamma curve</source>
+        <translation>全局伽马曲线</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Raises the normalised image to the power 1/γ, which lifts the shadows.</source>
+        <translation>对归一化图像取 1/γ 次幂，提亮暗部。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <location line="+17"/>
+        <source>Gamma</source>
+        <translation>伽马</translation>
+    </message>
+    <message>
+        <location line="-14"/>
+        <location line="+1"/>
+        <source>Tone mapping</source>
+        <translation>色调映射</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Maps the full range of the data to the 256 grey levels of a display. The result is in display values, 0 to 255.</source>
+        <translation>把数据的整个范围映射到显示器的 256 个灰度级。结果为显示值，0 到 255。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Percentile stretch</source>
+        <translation>百分位拉伸</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Stretches the window between two percentiles of the histogram linearly to 0–255 (auto levels). Good for low-contrast data on a pedestal; everything outside the window clips.</source>
+        <translation>把直方图两个百分位之间的窗口线性拉伸到 0–255（自动色阶）。适合带基底的低对比度数据；窗口之外的值全部被截断。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Clip darkest</source>
+        <translation>截断最暗</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Clip brightest</source>
+        <translation>截断最亮</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Gamma curve</source>
+        <translation>伽马曲线</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Normalises to the robust min–max and raises to the power 1/γ. γ = 2.2 is roughly what a camera does for an sRGB image. Good for ordinary scenes of moderate range.</source>
+        <translation>按稳健的最小–最大值归一化后取 1/γ 次幂。γ = 2.2 大致相当于相机生成 sRGB 图像时的处理。适合动态范围适中的普通场景。</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Log curve</source>
+        <translation>对数曲线</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>out = log(1 + a·x) / log(1 + a). Every stop gets some codes; midtones look flat and shadow noise is amplified the most.</source>
+        <translation>out = log(1 + a·x) / log(1 + a)。每一档曝光都分到一些灰度级；中间调显得平淡，暗部噪声被放大得最多。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Reinhard global</source>
+        <translation>Reinhard 全局</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Scales the log-average of the image to a key value, compresses with L·(1 + L/L_white²)/(1 + L) and applies display gamma. A photographic look with a smooth highlight roll-off.</source>
+        <translation>把图像的对数平均亮度缩放到基调值，用 L·(1 + L/L_white²)/(1 + L) 压缩，再施加显示伽马。具有摄影般的观感，高光过渡平滑。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Key</source>
+        <translation>基调值</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>White point</source>
+        <translation>白点</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>× max</source>
+        <translation>× 最大值</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Plateau equalisation</source>
+        <translation>平台直方图均衡</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Histogram equalisation with every bin capped at a plateau, so large flat areas cannot take all the codes. Output codes follow the pixel population: the usual automatic gain of thermal cameras.</source>
+        <translation>对每个直方图区间设置平台上限的直方图均衡，使大面积平坦区域无法占用全部灰度级。输出灰度级随像素分布而定：这是热像仪常用的自动增益方式。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Plateau limit</source>
+        <translation>平台上限</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>× mean</source>
+        <translation>× 均值</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>CLAHE</source>
+        <translation>CLAHE</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Equalises each tile with a clipped histogram and blends the neighbouring tile curves. Shows detail everywhere at once; brightness is no longer comparable across the frame.</source>
+        <translation>对每个分块用限幅直方图做均衡，并在相邻分块的曲线之间插值。可同时显示各处的细节；但画面不同位置的亮度不再可比。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Tiles per side</source>
+        <translation>每边分块数</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Clip limit</source>
+        <translation>限幅</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Base / detail split</source>
+        <translation>基础层 / 细节层分离</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>In log space a guided filter splits the image into a smooth base and a detail layer. Only the base is compressed; detail is added back with gain. The usual choice for real high dynamic range.</source>
+        <translation>在对数域中用引导滤波把图像分为平滑的基础层和细节层。只压缩基础层，细节乘以增益后加回。这是真正高动态范围场景的常用选择。</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+30"/>
+        <source>Detail gain</source>
+        <translation>细节增益</translation>
+    </message>
+    <message>
+        <location line="-27"/>
+        <source>Exposure fusion</source>
+        <translation>曝光融合</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Renders several virtual exposures from the one frame, weights each pixel by how close it is to mid-grey and blends them with Laplacian pyramids (Mertens). Natural and halo-resistant.</source>
+        <translation>由同一帧生成多个虚拟曝光，按每个像素接近中灰的程度加权，再用拉普拉斯金字塔融合（Mertens）。效果自然，不易产生光晕。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Exposures</source>
+        <translation>曝光数</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Exposure span</source>
+        <translation>曝光跨度</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Selectivity</source>
+        <translation>选择性</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Bit shift</source>
+        <translation>移位</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Keeps the top 8 bits, so full scale maps linearly to 0–255. A reference point: nothing clips, but shadows collapse to a few codes.</source>
+        <translation>保留最高 8 位，即把满量程线性映射到 0–255。可作为参照：不会截断，但暗部只剩下几个灰度级。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Input depth</source>
+        <translation>输入位深</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Automatic</source>
+        <translation>自动</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>10-bit</source>
+        <translation>10 位</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>12-bit</source>
+        <translation>12 位</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>14-bit</source>
+        <translation>14 位</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>16-bit</source>
+        <translation>16 位</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Detail enhancement</source>
+        <translation>细节增强</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Detail</source>
+        <translation>细节</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Amplifies fine local contrast (texture) without changing the large-scale brightness.</source>
+        <translation>放大细微的局部对比度（纹理），而不改变大尺度的亮度。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Base / detail boost</source>
+        <translation>基础层 / 细节层增强</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>A guided filter splits off the detail layer, which is multiplied by the gain. Detail below the noise threshold is left as it is, so noise is not amplified. Edges and slopes stronger than the edge threshold count as structure, not detail.</source>
+        <translation>用引导滤波分离出细节层并乘以增益。低于噪声阈值的细节保持不变，因此不会放大噪声。强于边缘阈值的边缘和亮度渐变视为结构，而非细节。</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Noise threshold</source>
+        <translation>噪声阈值</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Multi-scale</source>
+        <translation>多尺度</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Splits the image into fine, medium and coarse detail bands (differences of Gaussians), with a gain for each.</source>
+        <translation>把图像分为细、中、粗三个细节频带（高斯差分），各自有一个增益。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Fine (1 px)</source>
+        <translation>细（1 像素）</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Medium (4 px)</source>
+        <translation>中（4 像素）</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Coarse (16 px)</source>
+        <translation>粗（16 像素）</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Sharpening</source>
+        <translation>锐化</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sharpen</source>
+        <translation>锐化</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Steepens edges so the image looks crisper.</source>
+        <translation>使边缘更陡，图像看起来更清晰。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Unsharp mask</source>
+        <translation>反锐化掩模</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Adds back the difference between the image and a blurred copy. The threshold skips differences at noise level; limiting the overshoot prevents bright and dark halos along edges.</source>
+        <translation>把图像与其模糊副本之差加回图像。阈值会跳过噪声水平的差异；限制过冲可避免边缘两侧出现亮暗光晕。</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+9"/>
+        <source>Amount</source>
+        <translation>数量</translation>
+    </message>
+    <message>
+        <location line="-7"/>
+        <source>Overshoot</source>
+        <translation>过冲</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Allow</source>
+        <translation>允许</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Limit to local min / max</source>
+        <translation>限制在局部最小 / 最大值内</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Laplacian</source>
+        <translation>拉普拉斯</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Subtracts the Laplacian (second derivative). The simplest sharpener: it acts on the finest scale only and amplifies noise.</source>
+        <translation>减去拉普拉斯（二阶导数）。最简单的锐化方法：只作用于最细的尺度，并会放大噪声。</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Output quantisation</source>
+        <translation>输出量化</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Quantise</source>
+        <translation>量化</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Rounds the display values to whole grey levels. It needs tone mapping. Lower depths exaggerate banding, so you can see what dither does.</source>
+        <translation>把显示值取整为整数灰度级。需要先开启色调映射。较低的位深会突出条带现象，便于观察抖动的作用。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Round</source>
+        <translation>取整</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Rounds to the nearest level. Smooth gradients can show bands.</source>
+        <translation>取整到最近的灰度级。平滑的渐变可能出现条带。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Random dither (TPDF)</source>
+        <translation>随机抖动 (TPDF)</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Adds triangular random noise of ±1 level before rounding: bands turn into fine grain.</source>
+        <translation>取整前加入 ±1 级的三角分布随机噪声：条带变成细腻的颗粒。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Ordered dither (Bayer 8 × 8)</source>
+        <translation>有序抖动（Bayer 8 × 8）</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Adds a fixed 8 × 8 threshold pattern before rounding: a regular texture instead of bands.</source>
+        <translation>取整前加入固定的 8 × 8 阈值图案：以规则的纹理代替条带。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Floyd–Steinberg</source>
+        <translation>Floyd–Steinberg</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Passes each pixel&apos;s rounding error on to its neighbours (error diffusion).</source>
+        <translation>把每个像素的取整误差传给相邻像素（误差扩散）。</translation>
+    </message>
+    <message>
+        <location line="+615"/>
+        <source>Subtracted %1 DN</source>
+        <translation>已减去 %1 DN</translation>
+    </message>
+    <message>
+        <location line="+54"/>
+        <source>%1 pixels corrected (%2 %)</source>
+        <translation>已校正 %1 个像素（%2 %）</translation>
+    </message>
+    <message>
+        <location line="+249"/>
+        <source>%1 rows and %2 columns replaced</source>
+        <translation>已替换 %1 行、%2 列</translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Gain × %1</source>
+        <translation>增益 × %1</translation>
+    </message>
+    <message>
+        <location line="+20"/>
+        <source>Noise σ about %1, then %2</source>
+        <translation>噪声 σ 约 %1，处理后 %2</translation>
+    </message>
+    <message>
+        <location line="+44"/>
+        <source>Range %1 to %2 DN kept</source>
+        <translation>保持范围 %1 至 %2 DN</translation>
+    </message>
+    <message>
+        <location line="+196"/>
+        <source>%1-bit input: divided by %2</source>
+        <translation>%1 位输入：除以 %2</translation>
+    </message>
+    <message>
+        <location line="+45"/>
+        <source>Input window %1 to %2 DN</source>
+        <translation>输入窗口 %1 至 %2 DN</translation>
+    </message>
+    <message>
+        <location line="+165"/>
+        <source>%1 grey levels</source>
+        <translation>%1 个灰度级</translation>
+    </message>
+    <message>
+        <location line="+90"/>
+        <source>Skipped: turn on tone mapping first</source>
+        <translation>已跳过：请先开启色调映射</translation>
+    </message>
+    <message>
+        <location line="+33"/>
+        <source>Ordinary scene</source>
+        <translation>普通场景</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Defect pixel correction and a gamma curve: monotonic and predictable.</source>
+        <translation>坏点校正加伽马曲线：单调且可预期。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Bright and dark regions in one frame</source>
+        <translation>同一画面中既有亮区又有暗区</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Light denoising and exposure fusion, which compresses large-scale contrast and leaves texture alone.</source>
+        <translation>轻度降噪加曝光融合：压缩大尺度反差，保留纹理。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Low contrast on a pedestal (thermal)</source>
+        <translation>带基底的低对比度图像（热成像）</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Destriping, plateau equalisation and a detail boost.</source>
+        <translation>去条纹、平台直方图均衡和细节增强。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Inspection: visibility first</source>
+        <translation>检测：以可见性为先</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Bilateral denoising and CLAHE, for the most local contrast everywhere.</source>
+        <translation>双边降噪加 CLAHE，使各处的局部对比度最大。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sensor clean-up only</source>
+        <translation>仅传感器校正</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Defect pixels and defect lines are repaired; the values stay in DN.</source>
+        <translation>修复坏点和坏行 / 坏列；数值仍以 DN 为单位。</translation>
+    </message>
+</context>
+<context>
     <name>main</name>
     <message>
-        <location filename="../src/main.cpp" line="+30"/>
+        <location filename="../src/main.cpp" line="+35"/>
         <source>Dark-frame calibration and noise analysis for image stacks (MATLAB .mat, TIFF, PNG, JPEG)</source>
         <translation>对图像堆栈进行暗场校准和噪声分析（MATLAB .mat、TIFF、PNG、JPEG）</translation>
     </message>

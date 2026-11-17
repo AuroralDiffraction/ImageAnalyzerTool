@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 
 project(ImageAnalyzerTool
-    VERSION 0.3.2
+    VERSION 0.4.0
     DESCRIPTION "Dark-frame calibration and noise analysis for image stacks (MATLAB .mat, TIFF, PNG, JPEG)"
     HOMEPAGE_URL "https://github.com/AuroralDiffraction"
     LANGUAGES CXX)
@@ -17,6 +17,7 @@ set(CMAKE_AUTOMOC ON)
 option(IAT_BUILD_TESTS "Build the unit tests and the UI smoke test" ON)
 
 find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Widgets Concurrent LinguistTools)
+find_package(Threads REQUIRED)  # the image processing stages use several threads
 
 if(MSVC)
     # Sources are UTF-8 (they contain characters such as the multiplication sign).
@@ -34,6 +35,7 @@ add_library(iacore STATIC
     src/core/ImageStack.h       src/core/ImageStack.cpp
     src/core/Histogram.h        src/core/Histogram.cpp
     src/core/Processing.h       src/core/Processing.cpp
+    src/core/Isp.h              src/core/Isp.cpp
     src/io/MatFileReader.h      src/io/MatFileReader.cpp
     src/io/MatFileWriter.h      src/io/MatFileWriter.cpp
     src/io/TiffReader.h         src/io/TiffReader.cpp
@@ -41,7 +43,7 @@ add_library(iacore STATIC
 )
 target_include_directories(iacore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR}/generated)
 # Qt Gui only for QImage's PNG and JPEG decoders (no widgets; works headless).
-target_link_libraries(iacore PUBLIC Qt6::Core Qt6::Gui)
+target_link_libraries(iacore PUBLIC Qt6::Core Qt6::Gui Threads::Threads)
 
 # AppInfo.h: name, version, author and homepage from the values above.
 configure_file(src/AppInfo.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/AppInfo.h @ONLY)
@@ -55,8 +57,11 @@ add_library(iaui STATIC
     src/ui/LayoutMode.h
     src/ui/ModeSwitch.h         src/ui/ModeSwitch.cpp
     src/ui/Language.h           src/ui/Language.cpp
+    src/ui/Theme.h              src/ui/Theme.cpp
+    src/ui/Icons.h              src/ui/Icons.cpp
     src/ui/SettingsDialog.h     src/ui/SettingsDialog.cpp
     src/ui/ImagePanel.h         src/ui/ImagePanel.cpp
+    src/ui/PipelineDialog.h     src/ui/PipelineDialog.cpp
     src/ui/ImageView.h          src/ui/ImageView.cpp
     src/ui/HistogramWidget.h    src/ui/HistogramWidget.cpp
     src/ui/ContrastControl.h    src/ui/ContrastControl.cpp

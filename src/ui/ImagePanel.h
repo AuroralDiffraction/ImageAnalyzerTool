@@ -2,9 +2,11 @@
 
 #include "core/Histogram.h"
 #include "core/Image2D.h"
+#include "core/Isp.h"
 #include "core/Processing.h"
 
 #include <QFrame>
+#include <QFutureWatcher>
 #include <QImage>
 
 #include <limits>
@@ -24,6 +26,7 @@ namespace iat {
 class ContrastControl;
 class HistogramWidget;
 class ImageView;
+class PipelineDialog;
 
 enum class PanelRole { Light, Dark, Calibrated };
 
@@ -41,7 +44,8 @@ enum class ExportKind {
 };
 
 // One of the three panels in a session tab:
-//   title, Single frame / Mean toggle (light and dark), Load… button
+//   title, Single frame / Mean toggle (light and dark), Processing…, A/B
+//   and Load… buttons
 //   source information
 //   image (zoom / pan / pixel read-out / right-click menu)
 //   frame selector with ◀ ▶ buttons (light and dark frames, and a stack
@@ -58,6 +62,20 @@ enum class ExportKind {
 // The calibrated panel shows a red "Auto calibration off" indicator while it
 // holds an image loaded from a file; clicking it asks to go back to
 // automatic calibration.
+//
+// Image processing: every panel has its own processing pipeline
+// (isp::Pipeline: defect correction, denoising, tone mapping, sharpening, …),
+// edited in a PipelineDialog opened with the Processing… button. While a
+// stage is on, the panel shows the processed image: image() is the result,
+// rawImage() what the tab gave the panel, and the histogram, contrast range,
+// Mean and Std describe the processed image. The pipeline runs on a worker
+// thread; the previous picture stays until the new one is ready. Other
+// panels are not affected: the tab calculates the calibrated image from the
+// unprocessed light and dark images.
+//
+// A/B: with the A/B button on, a divider can be dragged across a processed
+// image; left of it the view shows the unprocessed image (A), right of it
+// the processed one (B). See ImageView::setCompareImage.
 //
 // In a tab's single image mode the light panel is the only one on show and
 // is presented as a plain "Image" panel (setSingleImage): same controls and
@@ -115,7 +133,35 @@ public:
     void clearNoise();
 
     bool hasImage() const { return !m_image.isNull(); }
+    // The image on display: the processed image while the pipeline is on,
+    // otherwise the same as rawImage().
     const Image2D& image() const { return m_image; }
+    // The image as given to setImage(), before any processing.
+    const Image2D& rawImage() const { return m_raw; }
+
+    // Image processing pipeline of this panel. setPipeline() processes the
+    // current image again (in the background) if the settings changed.
+    const isp::Pipeline& pipeline() const { return m_pipeline; }
+    void setPipeline(const isp::Pipeline& pipeline);
+    // True if processing is on (a stage is enabled and "Show original" is off).
+    bool processingActive() const { return m_pipeline.isActive() && !m_showOriginal; }
+    // True if image() is a processed image.
+    bool isProcessed() const { return m_processed; }
+    // True while the pipeline is running for an image that is not shown yet.
+    bool isProcessing() const { return m_processBusy; }
+    // "Show original": the unprocessed image, with the settings kept.
+    bool showOriginal() const { return m_showOriginal; }
+    void setShowOriginal(bool on);
+    // A/B comparison: a divider across the image, the unprocessed image to
+    // its left and the processed image to its right. It shows whenever the
+    // image on display is a processed one.
+    bool abCompare() const { return m_abCompare; }
+    void setAbCompare(bool on);  // emits abCompareChanged if it changes
+    // The enabled stages of the image on display, e.g. "Denoise: Bilateral
+    // filter; Tone mapping: CLAHE" (English), or empty if it is unprocessed.
+    QString processingSummary() const;
+    // The settings dialog (created on first use; not shown by this call).
+    PipelineDialog* pipelineDialog();
     const ImageStats& stats() const { return m_stats; }
     // calculateImageStats of the displayed image.
     const processing::MeanStd& meanStd() const { return m_meanStd; }
@@ -140,6 +186,7 @@ public slots:
     void stepFrame(int delta);          // previous (-1) / next (+1) frame
     void copyImageToClipboard();
     void copyReportToClipboard();
+    void openPipelineDialog();          // the Processing… button
 
 signals:
     // Files dropped onto the panel, already checked with selectFiles().
@@ -150,6 +197,9 @@ signals:
     // The "Auto calibration off" indicator was clicked.
     void autoCalibrationRequested();
     void exportRequested(iat::ExportKind kind);
+    // The pipeline started (true) or finished (false) working in the background.
+    void processingChanged(bool busy);
+    void abCompareChanged(bool on);
     void message(const QString& text);  // for the status bar
 
 protected:
@@ -157,6 +207,8 @@ protected:
     void dragLeaveEvent(QDragLeaveEvent* event) override;
     void dropEvent(QDropEvent* event) override;
     void contextMenuEvent(QContextMenuEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
 private:
     QStringList droppedPaths(const QMimeData* mime, QString* error) const;
@@ -166,6 +218,15 @@ private:
     void updateFrameControls();
     void updateStatTooltips();
     void render();
+    void display(const Image2D& image, bool resetContrast, bool displayReferred);
+    void reprocess();
+    void startProcessing(bool resetContrast);
+    void launchProcessing();
+    void onProcessingFinished();
+    void setProcessBusy(bool busy);
+    void updateProcessButton();
+    void updateHeaderButtons();
+    void updateCompareImage();
     void updateStatsLabel();
     void showPixel(int x, int y);
     void setControlsEnabled(bool on);
@@ -174,7 +235,29 @@ private:
 
     PanelRole m_role;
     bool m_single = false;
-    Image2D m_image;
+    Image2D m_raw;    // as given by the tab
+    Image2D m_image;  // on display (processed, or the same as m_raw)
+    Image2D m_shownRaw;  // the unprocessed image that m_image was made from
+
+    // Image processing.
+    isp::Pipeline m_pipeline;
+    isp::Pipeline m_shownPipeline;     // the settings of the image on display (if m_processed)
+    bool m_showOriginal = false;
+    bool m_abCompare = false;          // A/B divider wanted (shown while m_processed)
+    const double* m_beforeRangeFor = nullptr;  // the image the A side's display range was calculated for
+    double m_beforeLow = 0.0;
+    double m_beforeHigh = 1.0;
+    bool m_processed = false;          // m_image is a processed image
+    bool m_displayReferred = false;    // m_image holds display values 0..255
+    bool m_processBusy = false;        // a worker is running
+    bool m_processAgain = false;       // the input or settings changed meanwhile
+    bool m_processReset = false;       // reset the contrast when the result is shown
+    quint64 m_processGeneration = 0;   // of the newest request
+    quint64 m_runningGeneration = 0;   // of the worker
+    Image2D m_runningRaw;              // what the worker is processing
+    isp::Pipeline m_runningPipeline;
+    QFutureWatcher<isp::Result>* m_processWatcher = nullptr;
+    PipelineDialog* m_pipelineDialog = nullptr;
     QImage m_rendered;
     ImageStats m_stats;
     processing::MeanStd m_meanStd;
@@ -189,11 +272,14 @@ private:
     FrameMode m_mode = FrameMode::Single;
     int m_frameCount = 0;
     bool m_autoOff = false;
+    bool m_dropActive = false;  // files are being dragged over the panel
 
     QFrame* m_accent = nullptr;
     QLabel* m_title = nullptr;
     QLabel* m_source = nullptr;
     QToolButton* m_loadButton = nullptr;
+    QToolButton* m_processButton = nullptr;
+    QToolButton* m_abButton = nullptr;
     QToolButton* m_singleButton = nullptr;
     QToolButton* m_meanButton = nullptr;
     QButtonGroup* m_modeGroup = nullptr;

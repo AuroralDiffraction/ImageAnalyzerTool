@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0 (2026-11-16)
+
+- **Image processing** for every panel: the new **Processing…** button opens the panel's processing pipeline, shown as a chain of nodes from Input to Output. Each node is one stage with an on/off switch (off = bypass, the wire is drawn around the node); click a node to choose its algorithm and settings. The panel's image updates as you change them, and **Show original** switches back to the unprocessed image.
+- The stages, in the order of a camera ISP for a monochrome sensor: black level, defect pixels, defect rows / columns, digital gain, denoise, dynamic range compression, tone mapping, detail enhancement, sharpening, output quantisation.
+- Algorithms: denoising with a bilateral filter, guided filter, non-local means, median or Gaussian filter; tone mapping from the full range to 8 bits with percentile stretch, gamma, log, Reinhard, plateau equalisation, CLAHE, base/detail split, exposure fusion or a plain bit shift; dither (random, ordered, Floyd–Steinberg) for the final rounding. See the README for the full list.
+- **A/B** button on every panel (and in the pipeline window): it puts a divider on the processed image, with the unprocessed image to its left (A) and the processed one to its right (B). Drag the divider across the image to compare before and after; double-click it to centre it.
+- **Themes**: **File → Settings…** has a theme choice (Follow the system, Light, Dark) that applies at once. On Windows the app now uses Qt's Windows 11 style where the Qt it is built with has it (Qt 6.8.1 or newer for both Windows 10 and 11); the release build moves from Qt 6.6 to Qt 6.8 for this.
+- Design pass: the **Processing…** and **Load…** buttons have icons, and show only the icon when a panel is narrow (three panels side by side), so the header no longer crowds the title; the export buttons have icons too, and the menu arrow of **Data (.mat)** no longer overlaps its text. The icons are drawn in the text colour, so they suit both themes. The panel frame, colour strip and drop zone follow the theme.
+- **Presets** for common situations (ordinary scene, bright and dark regions in one frame, low-contrast / thermal data, inspection, sensor clean-up only).
+- While processing is on, the panel's histogram, contrast range, Mean and Std describe the processed image (the line under them says "processed"), the pixel read-out shows the processed and the unprocessed value, and "Image on display" exports hold the processed image with a `processing` text that lists the stages. Noise, "All frames" exports and the calibration (light − dark) keep using the unprocessed data.
+- The pipeline runs on worker threads, so the window stays responsive.
+
 ## 0.3.2 (2026-11-16)
 
 - Chinese interface: light frames are now called 场景帧 (scene frames) instead of 亮场帧; the light image is 场景图像.

@@ -99,7 +99,7 @@ void HistogramWidget::paintEvent(QPaintEvent*)
     paint(p, rect(), m_hist, m_low, m_high, m_log, palette(), labelFont());
 }
 
-double HistogramWidget::paintAsShown(QPainter& p, const QPointF& topLeft, double width) const
+double HistogramWidget::paintAsShown(QPainter& p, const QPointF& topLeft, double width, const QPalette* pal) const
 {
     // The size it has in the panel (or its preferred size if never laid out).
     const QSizeF shown = size().isEmpty() ? QSizeF(sizeHint()) : QSizeF(size());
@@ -107,7 +107,7 @@ double HistogramWidget::paintAsShown(QPainter& p, const QPointF& topLeft, double
     p.save();
     p.translate(topLeft);
     p.scale(scale, scale);  // vector painting, so lines and text stay sharp
-    paint(p, QRectF(QPointF(0, 0), shown), m_hist, m_low, m_high, m_log, palette(), labelFont());
+    paint(p, QRectF(QPointF(0, 0), shown), m_hist, m_low, m_high, m_log, pal ? *pal : palette(), labelFont());
     p.restore();
     return shown.height() * scale;
 }

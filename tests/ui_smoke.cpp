@@ -3,7 +3,8 @@
 // dark frames, waits for loading to finish and checks the results, the frame
 // buttons, linked zoom/pan, the clipboard copies and the exports. With the
 // small test files it also checks the Single frame / Mean modes, loading
-// several image files, and a calibrated image loaded from a file. These
+// several image files, a calibrated image loaded from a file, and the image
+// processing pipeline of a panel (the Processing… button). These
 // checks run with the English texts of the source code; at the end the
 // Chinese translation (the app's default language) is installed and checked.
 //
@@ -22,10 +23,13 @@
 #include "ui/Language.h"
 #include "ui/MainWindow.h"
 #include "ui/ModeSwitch.h"
+#include "ui/PipelineDialog.h"
 #include "ui/SessionTab.h"
 #include "ui/SettingsDialog.h"
+#include "ui/Theme.h"
 
 #include <QApplication>
+#include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
 #include <QDir>
@@ -39,7 +43,9 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPixmap>
+#include <QRegularExpression>
 #include <QScrollBar>
+#include <QSlider>
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QTemporaryDir>
@@ -570,6 +576,323 @@ int main(int argc, char* argv[])
         check(cp->frameCount() == 0 && near(cp->meanStd().mean, 1270.75), "restored: light frame 1 - mean dark");
     }
 
+    // ---- image processing pipeline of a panel
+    std::printf("image processing\n");
+    {
+        using isp::StageId;
+        waitUntilIdle(w, 5000);
+        const Image2D raw = lp->image();
+        const double rawMean = lp->meanStd().mean, rawLow = lp->displayLow(), rawHigh = lp->displayHigh();
+        const Image2D calBefore = cp->image();
+        const Image2D darkBefore = dp->image();
+        auto* button = lp->findChild<QToolButton*>(QStringLiteral("processButton"));
+        check(button && dp->findChild<QToolButton*>(QStringLiteral("processButton"))
+                  && cp->findChild<QToolButton*>(QStringLiteral("processButton")) && !lp->isProcessed()
+                  && !lp->processingActive() && lp->processingSummary().isEmpty(),
+              "every panel has a Processing… button; processing is off");
+        if (button)
+            button->click();
+        QCoreApplication::processEvents();
+        PipelineDialog* dlg = lp->pipelineDialog();
+        const auto nodes = dlg->findChildren<QWidget*>(QRegularExpression(QStringLiteral("^stageNode_")));
+        check(dlg->isVisible() && nodes.size() == int(isp::stages().size()) && nodes.size() == 10
+                  && !dlg->findChild<QWidget*>(QStringLiteral("stageNode_white_balance"))
+                  && dlg->windowTitle().contains(lp->title()),
+              "the button opens the pipeline: one node per stage (no white balance)");
+        check(sameImage(lp->image(), raw) && !w.isBusy(), "opening it changes nothing: every stage is bypassed");
+
+        // The switch on a node turns its stage on.
+        QWidget* toneNode = dlg->findChild<QWidget*>(QStringLiteral("stageNode_tone_map"));
+        if (toneNode) {
+            const QPointF pos(toneNode->width() - 9 - 18, 8 + 12);  // on the switch
+            QMouseEvent press(QEvent::MouseButtonPress, pos, toneNode->mapToGlobal(pos), Qt::LeftButton, Qt::LeftButton,
+                              Qt::NoModifier);
+            QCoreApplication::sendEvent(toneNode, &press);
+        }
+        check(dlg->pipeline().isEnabled(StageId::ToneMap) && dlg->selectedStage() == StageId::ToneMap
+                  && lp->pipeline() == dlg->pipeline() && w.isBusy(),
+              "clicking a node's switch turns the stage on; it runs in the background");
+        waitUntilIdle(w, 60000);
+        check(lp->isProcessed() && lp->processingActive() && sameImage(lp->rawImage(), raw)
+                  && !sameImage(lp->image(), raw),
+              "the panel shows the processed image and keeps the original");
+        check(lp->stats().min >= 0.0 && lp->stats().max <= 255.0 && lp->displayLow() == 0.0
+                  && lp->displayHigh() == 255.0,
+              "tone-mapped: display values, shown from 0 to 255");
+        check(lp->processingSummary() == QLatin1String("Tone mapping: Percentile stretch"),
+              "summary: Tone mapping: Percentile stretch");
+        check(sameImage(cp->image(), calBefore) && sameImage(dp->image(), darkBefore) && !dp->isProcessed()
+                  && !cp->isProcessed(),
+              "the other panels (and the calibration) still use unprocessed images");
+
+        // Choosing an algorithm and moving a parameter slider.
+        auto* algCombo = dlg->findChild<QComboBox*>(QStringLiteral("stageAlgorithm"));
+        const int clahe = algCombo ? algCombo->findText(QStringLiteral("CLAHE")) : -1;
+        if (clahe >= 0) {
+            algCombo->setCurrentIndex(clahe);
+            emit algCombo->activated(clahe);
+        }
+        waitUntilIdle(w, 60000);
+        check(clahe >= 0 && lp->processingSummary() == QLatin1String("Tone mapping: CLAHE")
+                  && int(algCombo->count()) == int(isp::stage(StageId::ToneMap).algorithms.size()),
+              "the algorithm list selects CLAHE");
+        const Image2D claheImage = lp->image();
+        auto* tiles = dlg->findChild<QSlider*>(QStringLiteral("param_tiles"));
+        if (tiles)
+            tiles->setValue(2);
+        waitUntilIdle(w, 60000);
+        check(tiles && lp->pipeline().value(StageId::ToneMap, "tiles") == 2.0 && !sameImage(lp->image(), claheImage),
+              "a parameter slider changes the result");
+
+        // A second stage; the display range is kept, since the scale is the same.
+        lp->setDisplayRange(10.0, 200.0);
+        dlg->setStageEnabled(StageId::Sharpen, true);
+        waitUntilIdle(w, 60000);
+        check(lp->processingSummary() == QLatin1String("Tone mapping: CLAHE; Sharpening: Unsharp mask")
+                  && lp->displayLow() == 10.0 && lp->displayHigh() == 200.0,
+              "sharpening added; the display range is kept");
+
+        // Another frame is processed with the same settings.
+        const Image2D processedFrame = lp->image();
+        lp->stepFrame(+1);
+        waitUntilIdle(w, 60000);
+        check(lp->isProcessed() && !sameImage(lp->rawImage(), raw) && lp->image().sameSize(raw)
+                  && lp->stats().max <= 255.0,
+              "the next frame is processed too");
+        lp->stepFrame(-1);
+        waitUntilIdle(w, 60000);
+        check(sameImage(lp->rawImage(), raw) && sameImage(lp->image(), processedFrame), "and back: the same result");
+
+        // Exports: the processed image, and which stages were applied.
+        tab->exportTo(lp, ExportKind::FrameMat, out("light_processed.mat"));
+        tab->exportTo(lp, ExportKind::StackMat, out("light_all_unprocessed.mat"));
+        waitUntilIdle(w, 60000);
+        const MatFileContents pf = MatFileReader::read(out("light_processed.mat"));
+        const MatVariable processedVar = variable(pf, lp->frameMode() == FrameMode::Mean ? "light_mean" : "light_frame");
+        check(pf.ok() && sameImage(processedVar.data.frame(0), lp->image())
+                  && textLength(pf, "processing") == lp->processingSummary().size(),
+              ".mat of the image on display: processed values + the stages");
+        const MatFileContents pa = MatFileReader::read(out("light_all_unprocessed.mat"));
+        check(pa.ok() && textLength(pa, "processing") < 0 && sameImage(variable(pa, "light").data.frame(lp->currentFrame()), raw),
+              ".mat of all frames: the unprocessed stack");
+
+        // Show original: a quick comparison that keeps the settings.
+        dlg->setShowOriginal(true);
+        waitUntilIdle(w, 60000);
+        check(lp->showOriginal() && !lp->isProcessed() && sameImage(lp->image(), raw) && near(lp->meanStd().mean, rawMean)
+                  && lp->pipeline().isActive() && lp->displayHigh() != 200.0,
+              "Show original: the unprocessed image, contrast set for its values");
+        dlg->setShowOriginal(false);
+        waitUntilIdle(w, 60000);
+        check(lp->isProcessed() && sameImage(lp->image(), processedFrame) && lp->displayLow() == 0.0
+                  && lp->displayHigh() == 255.0,
+              "and off again: the processed image, shown 0 to 255");
+
+        // A stage that keeps the scale (denoise) on its own keeps DN values.
+        dlg->resetAll();
+        waitUntilIdle(w, 60000);
+        check(!lp->pipeline().isActive() && !lp->isProcessed() && sameImage(lp->image(), raw),
+              "Reset all: back to the unprocessed image");
+        lp->setDisplayRange(rawLow, rawHigh);
+        dlg->applyPreset("cleanup");
+        waitUntilIdle(w, 60000);
+        check(lp->isProcessed() && lp->displayLow() == rawLow && lp->displayHigh() == rawHigh
+                  && lp->processingSummary().startsWith(QLatin1String("Defect pixels")),
+              "preset 'Sensor clean-up only': still DN, display range kept");
+
+        // A/B: a divider across the image, unprocessed left, processed right.
+        {
+            auto* ab = lp->findChild<QToolButton*>(QStringLiteral("abButton"));
+            auto* abInDialog = dlg->findChild<QCheckBox*>(QStringLiteral("abCompare"));
+            ImageView* view = lp->view();
+            auto* dpAb = dp->findChild<QToolButton*>(QStringLiteral("abButton"));
+            check(ab && abInDialog && ab->isEnabled() && !ab->isChecked() && !view->hasCompareImage()
+                      && dpAb && !dpAb->isEnabled(),
+                  "A/B button: enabled where processing is on, off at first");
+            dlg->applyPreset("general");  // tone mapped: the two sides differ clearly
+            waitUntilIdle(w, 60000);
+            const QImage plain = view->viewport()->grab().toImage();
+            if (ab)
+                ab->click();
+            QCoreApplication::processEvents();
+            const int x0 = view->compareDividerX();
+            check(lp->abCompare() && view->hasCompareImage() && abInDialog->isChecked()
+                      && view->comparePosition() == 0.5 && x0 > 0,
+                  "A/B on: the divider is in the middle of the image");
+            // Left of the divider the view shows the unprocessed image, right
+            // of it the picture is unchanged.
+            const QImage split = view->viewport()->grab().toImage();
+            const int yMid = split.height() / 2;
+            auto rowDiffers = [&](const QImage& a, const QImage& b, int from, int to) {
+                for (int x = from; x < to; ++x)
+                    if (a.pixel(x, yMid - 20) != b.pixel(x, yMid - 20))
+                        return true;
+                return false;
+            };
+            const QRect vis = view->mapFromScene(view->sceneRect()).boundingRect().intersected(view->viewport()->rect());
+            check(rowDiffers(split, plain, vis.left() + 2, x0 - 14) && !rowDiffers(split, plain, x0 + 14, vis.right() - 2),
+                  "left of it the unprocessed image, right of it the processed one");
+
+            // Dragging the divider moves it and does not pan the image.
+            const ViewState before = view->viewState();
+            auto mouse = [&](QEvent::Type type, const QPoint& pos, Qt::MouseButton button, Qt::MouseButtons buttons) {
+                QMouseEvent e(type, QPointF(pos), QPointF(view->viewport()->mapToGlobal(pos)), button, buttons,
+                              Qt::NoModifier);
+                QCoreApplication::sendEvent(view->viewport(), &e);
+            };
+            const int x1 = vis.left() + vis.width() / 4;
+            mouse(QEvent::MouseButtonPress, QPoint(x0, yMid), Qt::LeftButton, Qt::LeftButton);
+            mouse(QEvent::MouseMove, QPoint(x1, yMid), Qt::NoButton, Qt::LeftButton);
+            mouse(QEvent::MouseButtonRelease, QPoint(x1, yMid), Qt::LeftButton, Qt::NoButton);
+            QCoreApplication::processEvents();
+            const ViewState after = view->viewState();
+            check(std::abs(view->comparePosition() - 0.25) < 0.02 && std::abs(view->compareDividerX() - x1) <= 1
+                      && after.fit == before.fit && after.center == before.center,
+                  "dragging the divider moves it to a quarter of the image; the image stays put");
+            const QImage moved = view->viewport()->grab().toImage();
+            check(!rowDiffers(moved, plain, x1 + 14, vis.right() - 2) && rowDiffers(moved, plain, vis.left() + 2, x1 - 14),
+                  "and the two sides follow it");
+
+            // The comparison follows the processing state.
+            dlg->setShowOriginal(true);
+            waitUntilIdle(w, 60000);
+            check(!view->hasCompareImage() && !ab->isEnabled() && lp->abCompare() && !abInDialog->isEnabled(),
+                  "Show original: nothing to compare, the divider goes (the choice is kept)");
+            dlg->setShowOriginal(false);
+            waitUntilIdle(w, 60000);
+            check(view->hasCompareImage() && ab->isEnabled() && std::abs(view->comparePosition() - 0.25) < 0.02,
+                  "back: the divider returns where it was");
+            lp->stepFrame(+1);
+            waitUntilIdle(w, 60000);
+            check(view->hasCompareImage(), "it stays for the next frame");
+            lp->stepFrame(-1);
+            waitUntilIdle(w, 60000);
+
+            QString abShot = shot;
+            if (!abShot.isEmpty()) {
+                dlg->applyPreset("hdr");
+                waitUntilIdle(w, 60000);
+                view->setComparePosition(0.5);
+                QCoreApplication::processEvents();
+                abShot.replace(QLatin1String(".png"), QLatin1String("_ab.png"));
+                if (lp->grab().save(abShot))
+                    std::printf("A/B comparison: %s\n", qPrintable(abShot));
+            }
+            if (abInDialog)
+                abInDialog->setChecked(false);
+            QCoreApplication::processEvents();
+            check(!lp->abCompare() && !view->hasCompareImage() && !ab->isChecked(),
+                  "A/B off (from the dialog): the divider is gone");
+            view->setComparePosition(0.5);
+        }
+
+        QString shotPath = shot;
+        if (!shotPath.isEmpty()) {
+            dlg->applyPreset("hdr");
+            dlg->selectStage(StageId::ToneMap);
+            waitUntilIdle(w, 60000);
+            dlg->resize(1380, 500);  // the whole chain, whatever the size of the (off-screen) screen
+            QCoreApplication::processEvents();
+            shotPath.replace(QLatin1String(".png"), QLatin1String("_processing.png"));
+            if (dlg->grab().save(shotPath))
+                std::printf("processing dialog: %s\n", qPrintable(shotPath));
+        }
+        dlg->resetAll();
+        waitUntilIdle(w, 60000);
+        dlg->close();
+        check(!dlg->isVisible() && sameImage(lp->image(), raw) && sameImage(cp->image(), calBefore),
+              "closed; everything as before");
+    }
+
+    // ---- header buttons: icon and text where there is room, icon only when narrow
+    std::printf("header buttons\n");
+    {
+        auto* process = lp->findChild<QToolButton*>(QStringLiteral("processButton"));
+        const bool tripleCompact = lp->width() < 640 && process->toolButtonStyle() == Qt::ToolButtonIconOnly;
+        check(process && !process->icon().isNull() && !process->toolTip().isEmpty()
+                  && process->text() == QStringLiteral("Processing…") && tripleCompact,
+              "three panels side by side: Processing… shows its icon only (text and tooltip kept)");
+        const LayoutMode modeBefore = tab->layoutMode();
+        tab->setLayoutMode(LayoutMode::Single);
+        QCoreApplication::processEvents();
+        check(lp->width() >= 640 && process->toolButtonStyle() == Qt::ToolButtonTextBesideIcon,
+              "single image (wide panel): icon and text");
+        // The icons are drawn in the colour of the button text.
+        const QImage glyph = process->icon().pixmap(32, 32).toImage();
+        int inked = 0;
+        for (int y = 0; y < glyph.height(); ++y)
+            for (int x = 0; x < glyph.width(); ++x)
+                inked += qAlpha(glyph.pixel(x, y)) > 128;
+        check(inked > 40 && inked < 600, "the icon is a line drawing on a transparent background");
+        tab->setLayoutMode(modeBefore);
+        waitUntilIdle(w, 60000);
+    }
+
+    // ---- theme: light / dark
+    std::printf("theme\n");
+    {
+        using theme::Mode;
+        const QColor lightWindow = QApplication::palette().color(QPalette::Window);
+        check(theme::activeMode() == Mode::System && !theme::isDark() && !theme::styleName().isEmpty(),
+              "starts with the system's colours (light here)");
+        const QImage figureLight = lp->renderReport();
+        const QImage windowLight = w.grab().toImage();
+
+        theme::apply(Mode::Dark);
+        QCoreApplication::processEvents();
+        const QPalette dark = QApplication::palette();
+        check(theme::isDark() && theme::activeMode() == Mode::Dark && dark.color(QPalette::Window).lightness() < 90
+                  && dark.color(QPalette::WindowText).lightness() > 180,
+              "Dark: dark window colour, light text");
+        // Widgets take their colours from the palette, so open windows change at once.
+        const QImage windowDark = w.grab().toImage();
+        const QPoint corner(windowDark.width() - 12, windowDark.height() - 30);  // empty window background
+        auto* source = lp->findChild<QLabel*>();
+        bool mutedFollows = false;
+        for (QLabel* label : lp->findChildren<QLabel*>())
+            mutedFollows = mutedFollows || (label->foregroundRole() == QPalette::PlaceholderText
+                                            && label->palette().color(label->foregroundRole()).lightness() > 120);
+        check(source && QColor(windowDark.pixel(corner)).lightness() < 90
+                  && QColor(windowLight.pixel(corner)).lightness() > 200 && mutedFollows
+                  && lp->palette().color(QPalette::Window) == dark.color(QPalette::Window),
+              "the open window is redrawn dark, secondary text included");
+        check(lp->renderReport() == figureLight, "the copied figure stays on white, histogram included");
+        if (!shot.isEmpty()) {
+            QString darkShot = shot;
+            darkShot.replace(QLatin1String(".png"), QLatin1String("_dark.png"));
+            lp->pipelineDialog()->applyPreset("hdr");
+            lp->setAbCompare(true);
+            waitUntilIdle(w, 60000);
+            if (w.grab().save(darkShot))
+                std::printf("dark theme: %s\n", qPrintable(darkShot));
+            lp->pipelineDialog()->resize(1380, 500);
+            darkShot.replace(QLatin1String("_dark.png"), QLatin1String("_dark_processing.png"));
+            lp->pipelineDialog()->grab().save(darkShot);
+            lp->setAbCompare(false);
+            lp->pipelineDialog()->resetAll();
+            waitUntilIdle(w, 60000);
+        }
+
+        // File > Settings offers the three choices (the language list stays first).
+        SettingsDialog settings(&w);
+        auto* themeCombo = settings.findChild<QComboBox*>(QStringLiteral("theme"));
+        check(themeCombo && themeCombo->count() == 3 && settings.themeMode() == theme::savedMode()
+                  && settings.findChild<QComboBox*>() == settings.findChild<QComboBox*>(QStringLiteral("language")),
+              "Settings: theme list with Follow the system, Light, Dark");
+        settings.setThemeMode(Mode::Dark);
+        check(settings.themeMode() == Mode::Dark && themeCombo->currentText() == QLatin1String("Dark"),
+              "the dialog reports the chosen theme");
+
+        theme::apply(Mode::Light);
+        QCoreApplication::processEvents();
+        check(!theme::isDark() && QApplication::palette().color(QPalette::Window).lightness() > 200, "Light: light colours");
+        theme::apply(Mode::System);
+        QCoreApplication::processEvents();
+        check(!theme::isDark() && theme::activeMode() == Mode::System
+                  && QApplication::palette().color(QPalette::Window) == lightWindow,
+              "Follow the system: back to the colours it started with");
+    }
+
     // ---- icon and author / GitHub
     std::printf("icon and GitHub\n");
     const QString url = QStringLiteral("https://github.com/AuroralDiffraction");
@@ -624,6 +947,34 @@ int main(int argc, char* argv[])
             check(ImageFileReader::read(paletteTiff).error.contains(QStringLiteral("调色板"))
                       && MatFileReader::read(v73).error.contains(QStringLiteral("暂不支持")),
                   "error messages of the file readers are translated");
+        }
+        {
+            // The image processing pipeline: its own texts, and the stage and
+            // algorithm names from the tables in core/Isp.h.
+            ImagePanel* zp = zt->lightPanel();
+            PipelineDialog* zd = zp->pipelineDialog();
+            auto* zb = zp->findChild<QToolButton*>(QStringLiteral("processButton"));
+            zd->applyPreset("inspection");
+            waitUntilIdle(zh, 60000);
+            auto* zc = zd->findChild<QComboBox*>(QStringLiteral("stageAlgorithm"));
+            const QStringList notes = isp::run(zp->rawImage(), zp->pipeline()).notes;
+            check(zb && zb->text() == QStringLiteral("图像处理…") && zd->windowTitle() == QStringLiteral("图像处理：图像")
+                      && isp::text(isp::stage(isp::StageId::ToneMap).name) == QStringLiteral("色调映射")
+                      && zc && zc->findText(QStringLiteral("曝光融合")) >= 0
+                      && zp->pipeline().summary(true) == QStringLiteral("坏点校正: 邻域最小 / 最大值; 降噪: 双边滤波; 色调映射: CLAHE")
+                      && zp->processingSummary() == QLatin1String("Defect pixels: Neighbour min / max; Denoise: Bilateral filter; Tone mapping: CLAHE")
+                      && notes.value(isp::stageIndex(isp::StageId::DefectPixel)).startsWith(QStringLiteral("已校正")),
+                  "the image processing pipeline is translated (files keep English)");
+            if (!shot.isEmpty()) {
+                zd->show();
+                QCoreApplication::processEvents();
+                QString zhShot = shot;
+                zhShot.replace(QLatin1String(".png"), QLatin1String("_zh_processing.png"));
+                zd->grab().save(zhShot);
+                zd->close();
+            }
+            zd->resetAll();
+            waitUntilIdle(zh, 60000);
         }
         SettingsDialog settings(&zh);
         auto* combo = settings.findChild<QComboBox*>();
