@@ -18,8 +18,10 @@ namespace iat {
 // File > Settings; the choice is stored in the settings and applied when the
 // app starts (see main.cpp) and whenever it is changed. With Qt 6.8 or newer
 // Qt itself switches the colours (QStyleHints::setColorScheme), including
-// the window frame. With older versions an explicit Light or Dark uses the
-// fusion style with a palette defined here.
+// the window frame, on platforms that support it (Windows, macOS, most Linux
+// desktops). With older Qt, or where the platform ignores the request (for
+// example the off-screen platform used by the tests), an explicit Light or
+// Dark uses the fusion style with a palette defined here.
 //
 // Widgets must take their colours from the palette when they paint (not
 // keep copies), so that a change of theme reaches them at once.
@@ -42,7 +44,8 @@ bool isDark();
 // Name of the widget style in use, e.g. "windows11", "fusion".
 QString styleName();
 
-// The palettes used for an explicit Light or Dark with Qt older than 6.8.
+// The palettes used for an explicit Light or Dark where Qt cannot switch
+// the colours itself.
 // The light one is also for figures drawn on white, whatever the theme.
 QPalette lightPalette();
 QPalette darkPalette();

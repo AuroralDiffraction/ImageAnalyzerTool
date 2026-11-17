@@ -19,7 +19,7 @@ Mode g_mode = Mode::System;
 QString g_platformStyle;   // the style Qt chose for this platform, before any change
 bool g_applying = false;
 bool g_watching = false;
-bool g_ownPalette = false;  // an application palette of ours is set (Qt older than 6.8)
+bool g_ownPalette = false;  // an application palette of ours is set
 
 QString keyOf(Mode mode)
 {
@@ -46,8 +46,8 @@ bool systemIsDark()
 #endif
 }
 
-// The style to use for `mode`.
-QString styleFor(Mode mode, bool wantDark)
+// The style to use; `ownPalette`: the app sets a palette of its own.
+QString styleFor(bool wantDark, bool ownPalette)
 {
     QString style = g_platformStyle;
 #if defined(Q_OS_WIN) && QT_VERSION >= QT_VERSION_CHECK(6, 8, 1)
@@ -58,14 +58,10 @@ QString styleFor(Mode mode, bool wantDark)
     // The classic Windows style draws its controls from light bitmaps only.
     if (wantDark && style == QLatin1String("windowsvista") && hasStyle(QStringLiteral("fusion")))
         style = QStringLiteral("fusion");
-#if QT_VERSION < QT_VERSION_CHECK(6, 8, 0)
-    // No way to tell Qt which colours to use: a palette of our own, which
-    // the fusion style follows completely.
-    if (mode != Mode::System && hasStyle(QStringLiteral("fusion")))
+    // A palette of our own: the fusion style is the one that follows a
+    // palette completely (the native styles draw some parts their own way).
+    if (ownPalette && hasStyle(QStringLiteral("fusion")))
         style = QStringLiteral("fusion");
-#else
-    Q_UNUSED(mode);
-#endif
     return style;
 }
 
@@ -181,30 +177,34 @@ void apply(Mode mode)
         g_platformStyle = styleName();
     g_mode = mode;
 
+    // An explicit Light or Dark: ask Qt for that colour scheme (Qt 6.8+);
+    // Qt then switches the colours of every style that can show them, and of
+    // the window frames. Where Qt cannot (older Qt, or a platform without
+    // colour schemes, such as the off-screen platform of the tests and some
+    // Linux desktops), the app sets a palette of its own instead.
+    bool ownPalette = mode != Mode::System;
 #if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
-    // Qt switches the colours of every style that can show them, and of the
-    // window frames.
     QStyleHints* hints = QGuiApplication::styleHints();
     hints->unsetColorScheme();  // so that the system's own preference can be read
-    const bool wantDark = mode == Mode::Dark || (mode == Mode::System && systemIsDark());
-    const QString style = styleFor(mode, wantDark);
-    if (style != styleName())
-        QApplication::setStyle(style);
-    if (mode != Mode::System)
-        hints->setColorScheme(mode == Mode::Dark ? Qt::ColorScheme::Dark : Qt::ColorScheme::Light);
-#else
-    const bool wantDark = mode == Mode::Dark || (mode == Mode::System && systemIsDark());
-    const QString style = styleFor(mode, wantDark);
-    if (style != styleName())
-        QApplication::setStyle(style);
     if (mode != Mode::System) {
+        const Qt::ColorScheme wanted = mode == Mode::Dark ? Qt::ColorScheme::Dark : Qt::ColorScheme::Light;
+        hints->setColorScheme(wanted);
+        ownPalette = hints->colorScheme() != wanted;  // the platform ignored the request
+        if (ownPalette)
+            hints->unsetColorScheme();
+    }
+#endif
+    const bool wantDark = mode == Mode::Dark || (mode == Mode::System && systemIsDark());
+    const QString style = styleFor(wantDark, ownPalette);
+    if (style != styleName())
+        QApplication::setStyle(style);
+    if (ownPalette) {
         QApplication::setPalette(mode == Mode::Dark ? darkPalette() : lightPalette());
         g_ownPalette = true;
     } else if (g_ownPalette) {
         QApplication::setPalette(QPalette());  // back to the system's colours
         g_ownPalette = false;
     }
-#endif
     refreshStyleSheets();
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
