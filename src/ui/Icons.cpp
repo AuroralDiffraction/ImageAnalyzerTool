@@ -89,6 +89,35 @@ public:
             p->drawEllipse(QPointF(10.6, 5.8), 0.9, 0.9);
             break;
         }
+        case Glyph::Refresh: {
+            // Most of a circle, clockwise, with the arrowhead at the top right.
+            const QRectF circle(2.6, 2.6, 10.8, 10.8);
+            QPainterPath arc;
+            arc.arcMoveTo(circle, 60.0);
+            arc.arcTo(circle, 60.0, 290.0);  // counter-clockwise in Qt's angles = the arrow runs clockwise to its end
+            p->drawPath(arc);
+            QPainterPath head;
+            head.moveTo(13.9, 2.4);
+            head.lineTo(13.4, 6.6);
+            head.lineTo(9.4, 5.4);
+            p->drawPath(head);
+            break;
+        }
+        case Glyph::Reset: {
+            // An arrow that turns back to the left (undo), ending in a straight run.
+            QPainterPath path;
+            path.moveTo(13.8, 13.0);
+            path.lineTo(13.8, 9.0);
+            path.cubicTo(13.8, 6.0, 11.6, 4.8, 9.0, 4.8);
+            path.lineTo(3.0, 4.8);
+            p->drawPath(path);
+            QPainterPath head;
+            head.moveTo(6.0, 1.8);
+            head.lineTo(3.0, 4.8);
+            head.lineTo(6.0, 7.8);
+            p->drawPath(head);
+            break;
+        }
         }
         p->restore();
     }

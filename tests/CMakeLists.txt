@@ -15,6 +15,13 @@ qt_add_executable(tst_isp tst_isp.cpp)
 target_link_libraries(tst_isp PRIVATE iacore Qt6::Test)
 add_test(NAME tst_isp COMMAND tst_isp)
 
+# Unit tests for the hyperspectral code (core/Hsi*.h, io/HsiCubeIo.h), on
+# synthetic data. With IAT_LOCAL_HSI_DATA set to a folder of private sensor
+# files, it also compares with MATLAB's results (see tst_hsi.cpp).
+qt_add_executable(tst_hsi tst_hsi.cpp)
+target_link_libraries(tst_hsi PRIVATE iacore Qt6::Test)
+add_test(NAME tst_hsi COMMAND tst_hsi)
+
 # UI smoke test: builds the main window off-screen and loads the test files.
 qt_add_executable(ui_smoke ui_smoke.cpp)
 target_link_libraries(ui_smoke PRIVATE iaui)
@@ -26,6 +33,6 @@ set_tests_properties(ui_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 
 # On Windows the test programs need the Qt DLLs on PATH (CMake 3.22+).
 if(WIN32)
-    set_tests_properties(tst_core tst_isp ui_smoke PROPERTIES
+    set_tests_properties(tst_core tst_isp tst_hsi ui_smoke PROPERTIES
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${IAT_QT_BIN_DIR}")
 endif()

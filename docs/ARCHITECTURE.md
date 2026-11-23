@@ -23,6 +23,16 @@
 | Image processing for every panel: a modular pipeline of stages (defect pixel / row / column correction, denoising, dynamic range compression, tone mapping, detail enhancement, sharpening, …), each with a choice of algorithms or bypassed | `isp::` in `src/core/Isp.*` (stages, algorithms, parameters as tables; `isp::run`). `PipelineDialog` draws the chain of nodes and the settings of the selected stage from those tables. `ImagePanel` owns the panel's `isp::Pipeline` and runs it on a worker thread |
 | A/B button: a divider across the image for before and after | `ImagePanel::setAbCompare` → `ImageView::setCompareImage` (the unprocessed image drawn left of a draggable divider) |
 | Right-click: copy image, copy image + histogram + Mean/Std/Noise | `ImagePanel::copyImageToClipboard / copyReportToClipboard / renderReport` |
+| Hyperspectral workspace: third position of the switch | `LayoutMode::Hyperspectral`; `SessionTab` hides its splitter and shows its `HsiWorkspace` (made when first needed) |
+| Image source: drop / open a file, or an image of any tab | `HsiWorkspace::loadFile`; **Import from workspace…** → `ImportImageDialog` over the candidates from every tab (`SessionTab::importCandidates`, collected by the provider `MainWindow` gives each tab) |
+| Raw 4 × 4 mosaic → 16-band cube, four methods | `hsi::extract` (`src/core/Hsi.*`) |
+| Cube export: ENVI, MAT, multi-page TIFF | `hsi::writeEnvi / writeMat / writeMultiPageTiff` (`src/io/HsiCubeIo.*`) |
+| Correction panel: spectral correction, dark / white reference frames, sensor profiles | `hsi::computeCorrection / applyCorrection / correctedResponse / noiseGain / applyReferenceFrames` (`src/core/HsiCorrection.*`); `hsi::loadCorrectionMatrix`, `writeSensorProfile / readSensorProfile` (`src/io/HsiCubeIo.*`); details in `CorrectionDialog` |
+| Chemometric preprocessing: absorbance, SNV / MSC / normalisations, Savitzky–Golay | `hsi::toAbsorbance / normaliseSpectra / savitzkyGolay`, called by `hsi::process` (`src/core/Hsi.*`) |
+| PCA score plot with lasso selection | `ScorePlot` (density plot, groups, lasso); `hsi::selectInPolygon` (`src/core/HsiAnalysis.*`) |
+| Colour reconstruction from a spectral response | `hsi::loadResponse` (io), `hsi::xyzMatrix / rgbMatrix / renderRgb` (`src/core/HsiColour.*`) |
+| HSI processing: reflectance, MNF, guided filter, anti-aliasing, upscaling | `hsi::process` and the functions it calls (`src/core/Hsi.*`) |
+| HSI analysis: spectra, similar areas, classes, PCA, indices, false colour | `src/core/HsiAnalysis.*`; spectrum plot `SpectrumPlot`; regions drawn with `ImageView::setRegionTool / setOverlays` |
 
 Additions beyond the brief, kept small: a Load… button (as well as drag and drop), Auto / Full range contrast buttons, draggable histogram markers, log-scale histogram, zoom/pan, pixel read-out, and a check that light and dark sizes match.
 
@@ -53,7 +63,17 @@ src/ui/      iaui      Qt Widgets
                          the panel's image processing pipeline
     PipelineDialog       the pipeline as a chain of nodes (on / bypass), with
                          the algorithm and parameters of the selected stage
-    ImageView            QGraphicsView: zoom, pan, hover read-out
+    ImageView            QGraphicsView: zoom, pan, hover read-out; optional region
+                         tool (click / drag a rectangle) and labelled overlays
+    HsiWorkspace         the hyperspectral workspace of a tab: source, mosaic →
+                         cube, processing, colour, views, analysis, export
+    SpectrumPlot         spectra (mean ± std) against band or wavelength,
+                         painted with the palette (no Qt Charts)
+    ScorePlot            density scatter of two per-pixel scores (PCA), groups
+                         in colour, lasso selection
+    CorrectionDialog     the Correction panel's settings: spectral response,
+                         spectral correction, exposures, sensor profile
+    ImportImageDialog    choose a tab and one of its images
     HistogramWidget      histogram painting, draggable Min/Max markers
     ContrastControl      Min/Max sliders with spin boxes
 src/core/    iacore    data model and processing (Qt Core only)
@@ -66,12 +86,21 @@ src/core/    iacore    data model and processing (Qt Core only)
     isp::                image processing pipeline for monochrome sensor data:
                          tables of stages / algorithms / parameters, Pipeline
                          (the settings), run() (image in, image out), presets
+    hsi::                hyperspectral code (Hsi, HsiColour, HsiAnalysis,
+                         HsiCorrection, HsiLinalg): Cube, MosaicLayout, extract,
+                         reference frames, spectral correction, process,
+                         colour reconstruction, spectra, SAM, k-means, PCA,
+                         band maths, rendering
 matlab/                the original MATLAB functions the ports mirror
 src/io/      iacore
     MatFileReader        MATLAB Level 5 MAT-files (-v6, -v7), including compressed
     MatFileWriter        writes -v7 MAT-files (compressed): numeric arrays, scalars, char
     TiffReader           baseline TIFF and BigTIFF: strips / tiles, none / LZW /
                          Deflate / PackBits, predictors, integer and float samples
+    HsiCubeIo            hyperspectral cubes: ENVI read / write, MAT read / write,
+                         multi-page TIFF write; spectral response files (.mat, .csv);
+                         correction matrix files; sensor profiles (.iatsensor, JSON);
+                         spectra as CSV
     ImageFileReader      one TIFF / PNG / JPEG file as an X × Y frame (PNG and JPEG
                          through QImage), several files as one stack, natural
                          file-name order, which files a panel accepts
@@ -122,6 +151,30 @@ image from the tab ─► [black level] ─► [defect pixels] ─► [defect ro
 - **What it does not touch.** The tab calculates the calibrated image from its own sources (`Source::shown`), never from a panel's processed image, so each panel's pipeline is independent. Noise values describe the raw stacks. "All frames" exports are raw; "Image on display" exports the processed image and records `Pipeline::summary(false)` (English, like all names in exported files) as `processing`.
 - **Speed** (1028 × 1408, 2 cores, in the test environment): the global tone curves and CLAHE take about 20–30 ms, exposure fusion 0.2 s, guided and bilateral denoising 0.1 s, non-local means 0.8 s, defect lines 0.2 s. The row loops of the filters run on several threads (`std::thread`).
 
+## Hyperspectral workspace
+
+```
+raw mosaic (file, or an image of any tab) ─► hsi::applyReferenceFrames (optional) ─► hsi::extract ─► cube (extracted)
+    ─► hsi::applyCorrection (optional) ─► cube (unprocessed) ─► hsi::process ─► cube
+                                              layout, black level,      │              reflectance → MNF →
+                                              method                    │              guided → anti-alias → upscale
+                                                                        └─ A/B "before" ───────────┐
+                                                                                                    ▼
+          view: mosaic / band / all bands / colour / false colour / PCA / index / similar / classes
+          spectra: pixel under the mouse, kept points and areas (mean ± std), class means
+```
+
+- **Data.** `hsi::Cube` holds the bands one after the other (BSQ) as `float`, in an implicitly shared `QVector`, with the band wavelengths, units ("DN" or "reflectance") and a history of the steps (English; written into exports). Band b is channel b+1, whatever the mosaic layout.
+- **Extraction** matches `extract_hsi_channels.m` bit for bit in *Sub-sample* mode (checked against MATLAB's output on sensor data by `tst_hsi` when `IAT_LOCAL_HSI_DATA` is set). *Registration* resamples every band from its phase (r, c) in the super-pixel to the centre (1.5, 1.5); *Bilinear* and *PPID* interpolate every band's samples at their true positions to full resolution, PPID around a pseudo-panchromatic image (the mosaic filtered with [1 2 2 2 1]ᵀ[1 2 2 2 1]/64, in which every channel has the same weight; the border is extended by whole mosaic periods so it stays balanced).
+- **Colour.** `xyzMatrix` is `cmfᵀ (dλ ∘ R)` with the Wiener estimator `R = K Aᵀ (A K Aᵀ + α I)⁻¹` of `hsi_reconstruct.m`, CIE 1931 interpolated with MATLAB's `pchip`, so the 3 × 16 matrices agree with MATLAB to about 1e-13. `rgbMatrix` adds the white balance (scene white from grey world, white patch, a reference area or a flat spectrum; Bradford to D65) and XYZ → linear sRGB; `renderRgb` applies it with the exposure percentile (MATLAB's nearest-rank `pct`) and the sRGB curve. The spectral response is held in memory only.
+- **Processing order** is fixed, like the ISP: corrections that need the raw statistics first (reflectance), denoising before anything that spreads noise, resampling last. MNF estimates the noise covariance from differences of horizontally adjacent pixels, whitens with its Cholesky factor, keeps the first *k* components of the whitened data's eigenvectors and transforms back, all as one B × B matrix per pixel. The guided filter uses the mean of all bands as the guide for every band.
+- **Correction.** Reference frames are applied to the raw mosaic, before extraction, so the flat field is per sensor pixel (every channel of every super-pixel has its own gain); the image and the frames are first brought to the same units (MSB-aligned data shifted down by `msbScale`) and then extracted with bit depth 0, and a dark frame replaces the black level. The spectral correction is applied to the extracted cube (`m_cubeExtracted` → `m_cubeRaw`), so changing it does not extract again, and A/B treats the corrected cube as "unprocessed". `effectiveResponse()` (the response `C·A` when correction is on) feeds the colour matrix and the wavelengths. The noise gain of a correction is the mean over its rows of ‖row‖₂ / |Σ row|: when most of every channel's response is background shared with the others, narrowing the bands amplifies noise many times over, the more so the smaller the regularisation.
+- **Views.** Up to four panes (`HsiWorkspace::Pane`: an `ImageView`, its view mode, band and false-colour bands); a click on a pane (event filter on its viewport and title) makes it the active pane, and the toolbar's *View* and the options panel under the views edit the active pane's settings. `renderMode` reads the band and bands of the pane being drawn (`m_renderPane`). The grid has equal row and column stretches and the options panel a fixed height (its tallest page), so activating a pane never moves the views; only the rows and columns in use have a stretch (`updateGridStretch`), so one pane fills the grid. `refreshAll` sets `m_needExtract` / `m_needCorrect`, drops the cached colour and analysis results and starts the job at once; `refreshPane` drops only what that pane's mode caches and draws again; `resetPane` restores a pane's default mode, band and bands and fits it; `resetAll` also resets the processing and colour settings (one job, since `setProcessingSettings` schedules it). A pane that is zoomed or panned stores the shared state in processed-cube pixels (`m_sharedView`) and the others apply it at their own scale (the raw mosaic is 4× larger); the band gallery is not synchronised. The pixel under the mouse in any pane becomes pointer markers (`ImageView::setPointers`) in the other panes — in every tile of the gallery. Overlays carry what they stand for (`OverlayRef`), so right-clicking a label (`ImageView::overlayRemoveRequested`) removes that area or reference.
+- **A/B.** Each pane renders its "after" picture first and keeps its display stretch (`Stretch`: band ranges or the colour exposure scale); the "before" picture of the unprocessed cube reuses it when both cubes have the same units, so differences are not hidden by a separate contrast stretch.
+- **Coordinates.** Kept areas, the white reference and the colour reference are stored in pixels of the unprocessed cube and scaled to the processed cube (after upscaling) and to the picture on display (the raw mosaic is 4× larger in sub-sample mode).
+- **Threads.** Extraction and processing run as one job on Qt's thread pool (`QtConcurrent::run` + `QFutureWatcher`), started 120 ms after the last change of a setting; a change during a run starts another run when it ends. k-means runs on its own. The workspace reports `busyChanged`, which the tab counts as pending work like a file load, and shows **Processing…** over the image when work lasts longer than 200 ms. The filters write each band from its own thread into a cube copied from the input: they call `Cube::detach()` first, because Qt's copy-on-write is not thread-safe (several threads detaching one shared copy at once freed memory still in use; `tst_hsi` runs every combination of steps on a shared cube). The views are rendered on the GUI thread (a 256 × 320 × 16 cube renders in milliseconds; PCA and the angle map take a few tens of milliseconds at full resolution).
+- **Private data.** The spectral response and real sensor captures are for local development only: `.gitignore` excludes them (including `_cube.mat` files, which contain the QE curves), and the tests in the repository use synthetic data.
+
 ## Conventions
 
 - **Dimensions.** A MATLAB array of size `[X Y Z]` is read as X rows × Y columns × Z frames and drawn like `imagesc`: X runs top to bottom, Y left to right. An image file is one X × Y frame, rows × columns as `imread` returns it. The sensor data this was first written for (`all_pixel`) is 1028 × 1408 × 20.
@@ -162,7 +215,7 @@ Reading files, computing the mean over frames and computing the noise values all
 
 - **Steps and batch processing.** The `processing::` functions are pure: images in, image out, no GUI. The image processing pipeline (`isp::`) is the first set of steps with a table of parameters and a settings object (`isp::Pipeline`); saving that object to a file (JSON: stage key, algorithm id, parameter ids and values, all of which are stable names) gives saved recipes, and the chain a tab performs (mean dark → subtract) becomes steps in front of it. The GUI and a command-line runner then execute the same recipe.
 - **MATLAB.** The MATLAB Engine goes in a separate plugin DLL that implements the same step interface and is loaded only if MATLAB is installed, so the main `.exe` keeps running on PCs without MATLAB.
-- **Hyperspectral.** "Raw frame → cube" becomes another step (mosaic layout from a sensor profile), and the Light panel gains a band selector next to the frame selector.
+- **Hyperspectral.** The workspace exists (see above). Next steps: saving the mosaic layout and spectral response together as a sensor profile, spectral correction (a channel cross-talk matrix from the QE curves), endmember extraction and unmixing, supervised classification from labelled areas, and HDF5 export for large cubes.
 
 ## Open decisions
 

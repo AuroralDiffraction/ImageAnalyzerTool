@@ -3,6 +3,7 @@
 #include "core/Image2D.h"
 #include "core/ImageStack.h"
 #include "ui/ImagePanel.h"
+#include "ui/ImportImageDialog.h"
 #include "ui/ImageView.h"
 #include "ui/LayoutMode.h"
 
@@ -17,14 +18,18 @@ class QTimer;
 
 namespace iat {
 
+class HsiWorkspace;
 struct MatFileContents;
 struct MatVariable;
 
-// One tab, in one of two layouts (LayoutMode, chosen per tab):
+// One tab, in one of three layouts (LayoutMode, chosen per tab):
 //
 //   Single (the default)  one panel showing one image, with the same
 //                         histogram, contrast controls and Mean / Std / Noise
 //   Triple                light frames, dark frames and the calibrated result
+//   Hyperspectral         the hyperspectral workspace (HsiWorkspace): a raw
+//                         4 × 4 mosaic from a file or from any tab's image
+//                         → 16-band cube → colour, spectra and analysis
 //
 // The single image is the tab's light stack, shown in the light panel on its
 // own, so switching to three panels keeps it as the light frames, and
@@ -61,6 +66,16 @@ public:
     LayoutMode layoutMode() const { return m_layout; }
     void setLayoutMode(LayoutMode mode);
     bool isSingleImage() const { return m_layout == LayoutMode::Single; }
+    bool isHyperspectral() const { return m_layout == LayoutMode::Hyperspectral; }
+
+    // The hyperspectral workspace (made when first needed).
+    HsiWorkspace* hsiWorkspace();
+    // Where the workspace finds the images of all tabs (set by MainWindow).
+    void setImportProvider(ImportProvider provider);
+    // This tab's images that the hyperspectral workspace can take: the
+    // single image (or light frames), dark frames and calibrated image on
+    // display, unprocessed. `tabName` is put into each candidate.
+    QList<ImportCandidate> importCandidates(const QString& tabName) const;
 
     // Single image mode: loads the image (the same as loadLight).
     void loadImage(const QStringList& paths) { loadLight(paths); }
@@ -161,6 +176,8 @@ private:
     void startCalibratedNoise();
     void addPending(int delta);
     void applyLayoutMode();
+    // True when the three panels are on show (Triple layout).
+    bool threePanelsShown() const { return m_layout == LayoutMode::Triple; }
     void linkViews();
     QStringList openDialog(const QString& title, bool multiple);
     QString defaultExportName(ImagePanel* panel, ExportKind kind) const;
@@ -190,6 +207,9 @@ private:
     // image mode); it is brought up to date when the three panels come back.
     bool m_calStale = false;
     bool m_calStaleResetContrast = false;
+
+    HsiWorkspace* m_hsi = nullptr;
+    ImportProvider m_importProvider;
 
     ViewState m_sharedView;  // zoom/pan shared by the three views
     int m_pending = 0;

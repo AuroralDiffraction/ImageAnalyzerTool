@@ -8,12 +8,13 @@ class QVariantAnimation;
 
 namespace iat {
 
-// Slide switch with two positions, each marked by an icon:
+// Slide switch with three positions, each marked by an icon:
 //
-//   [ ▭ | ▯▯▯ ]     one panel (single image)  |  three panels
+//   [ ▭ | ▯▯▯ | ▤ ]   one panel (single image) | three panels | hyperspectral
 //
-// A thumb slides to the chosen side. Click an icon to choose it; with the
-// keyboard, Left / Right choose a side and Space switches to the other one.
+// A thumb slides to the chosen position. Click an icon to choose it; with
+// the keyboard, Left / Right move one position and Space moves to the next
+// (wrapping around).
 //
 // The switch shows the mode of the current tab: MainWindow moves it with
 // setMode() when the tab changes, and applies modeChanged() to the tab.
@@ -42,10 +43,11 @@ protected:
 private:
     void choose(LayoutMode mode);  // by the user: animates and emits modeChanged
     QRectF segmentRect(int index) const;
+    LayoutMode modeAt(double x) const;
     static QString tipFor(LayoutMode mode);
 
     LayoutMode m_mode = LayoutMode::Single;
-    double m_position = 0.0;  // thumb position: 0 = Single … 1 = Triple
+    double m_position = 0.0;  // thumb position: 0 = Single, 1 = Triple, 2 = Hyperspectral
     QVariantAnimation* m_animation = nullptr;
 };
 

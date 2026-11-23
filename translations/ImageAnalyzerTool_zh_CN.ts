@@ -140,6 +140,194 @@ drop a .mat, TIFF, PNG or JPG file here.</source>
     </message>
 </context>
 <context>
+    <name>iat::CorrectionDialog</name>
+    <message>
+        <location filename="../src/ui/CorrectionDialog.cpp" line="+33"/>
+        <source>Correction settings</source>
+        <translation>校正设置</translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>Spectral response</source>
+        <translation>光谱响应</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>No spectral response loaded.</source>
+        <translation>未加载光谱响应。</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Spectral correction</source>
+        <translation>光谱校正</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Correct the channels</source>
+        <translation>校正通道</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Fabry-Perot channels also respond outside their peak (a broad background shared by all channels, harmonics, cross-talk). The correction turns the 16 measured channels into bands that respond like narrow filters at the channel peaks.</source>
+        <translation>法布里-珀罗通道在峰值之外也有响应（所有通道共有的宽背景、谐波、串扰）。校正将 16 个实测通道转换为在通道峰值处如窄带滤光片般响应的波段。</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Compute from the spectral response</source>
+        <translation>由光谱响应计算</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Correction matrix from a file</source>
+        <translation>从文件读取校正矩阵</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>measured widths</source>
+        <translation>实测宽度</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Width (FWHM) of the target band of each channel; narrower bands separate wavelengths better but amplify noise</source>
+        <translation>每个通道目标波段的宽度（半高宽）；波段越窄，波长分辨越好，但噪声放大越多</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Regularisation: larger keeps noise low, smaller follows the targets more closely</source>
+        <translation>正则化：越大噪声越低，越小越贴近目标</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Target width:</source>
+        <translation>目标宽度：</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Regularisation:</source>
+        <translation>正则化：</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Load matrix…</source>
+        <translation>加载矩阵…</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>A V × 16 matrix supplied with the camera (.csv or .mat); with 17 columns the first is the band&apos;s centre wavelength</source>
+        <translation>相机附带的 V × 16 矩阵（.csv 或 .mat）；若有 17 列，第一列为波段中心波长</translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Reference frames</source>
+        <translation>参考帧</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>same</source>
+        <translation>相同</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Exposure time of the image; with the white frame&apos;s, the two are compared per ms</source>
+        <translation>图像的曝光时间；与白参考帧的曝光时间一起，按每毫秒进行比较</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Reflectance of the white reference (e.g. 0.99 for Spectralon)</source>
+        <translation>白参考的反射率（例如 Spectralon 为 0.99）</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Image exposure:</source>
+        <translation>图像曝光：</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>White exposure:</source>
+        <translation>白参考曝光：</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>White reflectance:</source>
+        <translation>白参考反射率：</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Measured channel responses</source>
+        <translation>实测通道响应</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Corrected band responses</source>
+        <translation>校正后的波段响应</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Response</source>
+        <translation>响应</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Load a spectral response to see the channel responses.</source>
+        <translation>加载光谱响应以查看通道响应。</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Save sensor profile…</source>
+        <translation>保存传感器配置…</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Mosaic layout, bit depth, these settings and the paths of the spectral response, correction matrix and reference frames, in one file</source>
+        <translation>马赛克排列、位深、这些设置以及光谱响应、校正矩阵和参考帧的路径，保存在一个文件中</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Load sensor profile…</source>
+        <translation>加载传感器配置…</translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <source>No matrix file.</source>
+        <translation>无矩阵文件。</translation>
+    </message>
+    <message>
+        <location line="+61"/>
+        <source>Load correction matrix</source>
+        <translation>加载校正矩阵</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Correction matrix (*.csv *.txt *.mat);;All files (*)</source>
+        <translation>校正矩阵 (*.csv *.txt *.mat);;所有文件 (*)</translation>
+    </message>
+    <message>
+        <location line="+22"/>
+        <source>Load a matrix file.</source>
+        <translation>请加载矩阵文件。</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Load a spectral response first.</source>
+        <translation>请先加载光谱响应。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Matrix from %1: %2 → %3 bands, noise × %4.</source>
+        <translation>来自 %1 的矩阵：%2 → %3 个波段，噪声 × %4。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Match to the target bands: %1 % residual; noise × %2. The narrower the bands, the more noise: raise the regularisation (or the width) if the corrected image is noisy, or denoise after the correction (MNF, guided filter).</source>
+        <translation>与目标波段的匹配：残差 %1 %；噪声 × %2。波段越窄，噪声越大：若校正后图像噪声大，请增大正则化（或宽度），或在校正后去噪（MNF、引导滤波）。</translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Channel %1</source>
+        <translation>通道 %1</translation>
+    </message>
+</context>
+<context>
     <name>iat::HistogramWidget</name>
     <message>
         <location filename="../src/ui/HistogramWidget.cpp" line="+132"/>
@@ -155,6 +343,1546 @@ drop a .mat, TIFF, PNG or JPG file here.</source>
         <location line="+0"/>
         <source>pixel count</source>
         <translation>像素数</translation>
+    </message>
+</context>
+<context>
+    <name>iat::HsiWorkspace</name>
+    <message>
+        <location filename="../src/ui/HsiWorkspace.cpp" line="+141"/>
+        <source>Classes (share of pixels): %1</source>
+        <translation>类别（像素占比）：%1</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Clustering did not give a result.</source>
+        <translation>聚类没有得到结果。</translation>
+    </message>
+    <message>
+        <location line="+30"/>
+        <source>Drop a raw 4 × 4 mosaic here (TIFF, PNG or .mat), or a cube (ENVI .hdr, .mat),
+or use “Import from workspace” to take the image or calibrated image of a tab.
+
+A spectral response file (.mat with lambda and QE_percent, or .csv) can be dropped too.</source>
+        <translation>将原始 4 × 4 马赛克（TIFF、PNG 或 .mat）或数据立方体（ENVI .hdr、.mat）拖放到这里，
+或使用“从工作区导入”获取某个标签页的图像或校准图像。
+
+也可以拖入光谱响应文件（含 lambda 和 QE_percent 的 .mat，或 .csv）。</translation>
+    </message>
+    <message>
+        <location line="+73"/>
+        <source>Processing…</source>
+        <translation>处理中…</translation>
+    </message>
+    <message>
+        <location line="+78"/>
+        <source>Source</source>
+        <translation>数据来源</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Open file…</source>
+        <translation>打开文件…</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>A raw mosaic (TIFF, PNG, JPEG, .mat), a cube (ENVI .hdr, .mat) or a spectral response file</source>
+        <translation>原始马赛克（TIFF、PNG、JPEG、.mat）、数据立方体（ENVI .hdr、.mat）或光谱响应文件</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Import from workspace…</source>
+        <translation>从工作区导入…</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Use the single image, light or dark frames, or calibrated image of an open tab</source>
+        <translation>使用已打开标签页的单图像、场景帧、暗场帧或校准图像</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>No image yet. Drop a file onto the workspace.</source>
+        <translation>尚无图像。请将文件拖放到工作区。</translation>
+    </message>
+    <message>
+        <location line="+73"/>
+        <source>Mosaic → cube</source>
+        <translation>马赛克 → 数据立方体</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Mosaic layout…</source>
+        <translation>马赛克排列…</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Which channel sits at each position of the 4 × 4 super-pixel</source>
+        <translation>4 × 4 超像素中每个位置对应的通道</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Sub-sample (as extract_hsi_channels.m)</source>
+        <translation>子采样（同 extract_hsi_channels.m）</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sub-sample + registration (recommended)</source>
+        <translation>子采样 + 配准（推荐）</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Full resolution: bilinear</source>
+        <translation>全分辨率：双线性</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Full resolution: PPID demosaic</source>
+        <translation>全分辨率：PPID 去马赛克</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>One value per super-pixel and channel: rows/4 × cols/4 × 16. The bands are up to ¾ of a cube pixel apart, which gives false spectra at edges.</source>
+        <translation>每个超像素每个通道一个值：行/4 × 列/4 × 16。各波段之间最多相差 ¾ 个立方体像素，会在边缘产生虚假光谱。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>As sub-sampling, but every band is moved to the centre of the super-pixel, so all bands describe the same point.</source>
+        <translation>与子采样相同，但每个波段都移到超像素中心，使所有波段描述同一个点。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Every band interpolated to the full sensor resolution from its own pixels.</source>
+        <translation>每个波段由其自身像素插值到传感器全分辨率。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Pseudo-panchromatic image difference (Mihoubi et al. 2017): a full-resolution image of all channels guides the interpolation, so edges stay sharp and aligned.</source>
+        <translation>伪全色图像差分（Mihoubi 等，2017）：由所有通道合成的全分辨率图像引导插值，使边缘保持清晰且对齐。</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Method:</source>
+        <translation>方法：</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <location line="+2661"/>
+        <source>Dark offset in DN, subtracted from every pixel. Leave 0 for a calibrated image (light − dark), which has it removed already.</source>
+        <translation>暗电平偏移（DN），从每个像素中减去。校准图像（场景 − 暗场）已去除偏移，请保留为 0。</translation>
+    </message>
+    <message>
+        <location line="-2659"/>
+        <source>Black level (DN):</source>
+        <translation>黑电平 (DN)：</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>no check</source>
+        <translation>不检查</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>ADC bit depth. Values above 2^bits − 1 are taken as MSB-aligned in a 16-bit container and shifted down, as hsi_reconstruct.m does.</source>
+        <translation>ADC 位深。超过 2^位数 − 1 的数值视为存放在 16 位容器中的高位对齐数据并右移，与 hsi_reconstruct.m 相同。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Bit depth:</source>
+        <translation>位深：</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Clip negative values to 0</source>
+        <translation>将负值截为 0</translation>
+    </message>
+    <message>
+        <location line="+23"/>
+        <source>Processing</source>
+        <translation>处理</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <location line="+2230"/>
+        <source>Reflectance</source>
+        <translation>反射率</translation>
+    </message>
+    <message>
+        <location line="-2229"/>
+        <source>Divide every band by its mean over a white reference area: spectra become comparable between exposures and lights. Recommended first step.</source>
+        <translation>将每个波段除以其在白参考区域内的均值：使不同曝光和光源下的光谱可以比较。推荐作为第一步。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <location line="+217"/>
+        <source>Pick white area</source>
+        <translation>选择白参考区域</translation>
+    </message>
+    <message>
+        <location line="-216"/>
+        <source>Then drag a rectangle over a white (or known grey) reference in the image</source>
+        <translation>然后在图像中的白色（或已知灰度）参考物上拖出一个矩形</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Clear</source>
+        <translation>清除</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Remove the white area and turn reflectance off</source>
+        <translation>删除白参考区域并关闭反射率</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Reflectance of the reference (e.g. 0.99 for Spectralon, about 0.9 for white paper)</source>
+        <translation>参考物的反射率（例如 Spectralon 为 0.99，白纸约为 0.9）</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Reference reflectance:</source>
+        <translation>参考反射率：</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+751"/>
+        <source>No white area chosen.</source>
+        <translation>尚未选择白参考区域。</translation>
+    </message>
+    <message>
+        <location line="-748"/>
+        <source>Spectral denoise (MNF)</source>
+        <translation>光谱降噪 (MNF)</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Minimum noise fraction, as in ENVI: the bands are turned into components ordered by signal-to-noise ratio, the noisiest are dropped, and the rest turned back into bands.</source>
+        <translation>最小噪声分离（与 ENVI 相同）：将波段变换为按信噪比排序的分量，去掉噪声最大的分量，再将其余分量变换回波段。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Number of components to keep</source>
+        <translation>保留的分量数</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Edge-preserving denoise (guided)</source>
+        <translation>保边降噪（引导滤波）</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Guided filter with the mean of all bands as the guide: smooths noise while keeping the edges of every band in the same place.</source>
+        <translation>以所有波段的均值图像为引导的引导滤波：平滑噪声，同时使各波段的边缘保持在同一位置。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>r </source>
+        <translation>半径 </translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Anti-aliasing (low-pass)</source>
+        <translation>抗混叠（低通）</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Gaussian low-pass of every band: removes the coloured fringes that sampling every band at 1/16 of the pixels causes. Registration or demosaicking helps more.</source>
+        <translation>对每个波段做高斯低通：去除每个波段只采样 1/16 像素所造成的彩色条纹。配准或去马赛克效果更好。</translation>
+    </message>
+    <message>
+        <location line="+50"/>
+        <source>Enlarge every band. Interpolation only: no new detail. For more resolution, choose a full-resolution extraction method instead.</source>
+        <translation>放大每个波段。仅为插值，不会产生新细节。如需更高分辨率，请改用全分辨率提取方法。</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Nearest</source>
+        <translation>最近邻</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Bilinear</source>
+        <translation>双线性</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Bicubic</source>
+        <translation>双三次</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Upscale:</source>
+        <translation>放大：</translation>
+    </message>
+    <message>
+        <location line="+39"/>
+        <source>Colour reconstruction</source>
+        <translation>颜色重建</translation>
+    </message>
+    <message>
+        <location line="-262"/>
+        <source>Load spectral response…</source>
+        <translation>加载光谱响应…</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>The reconstruction matrix: QE of every channel (.mat with lambda and QE_percent, or .csv with Band1 … Band16 columns). It stays on your computer; it is not copied or exported.</source>
+        <translation>重建矩阵：每个通道的量子效率（含 lambda 和 QE_percent 的 .mat，或含 Band1 … Band16 列的 .csv）。该文件只留在您的电脑上，不会被复制或导出。</translation>
+    </message>
+    <message>
+        <location line="+267"/>
+        <source>Correlation length of the smoothness prior of the spectral estimate</source>
+        <translation>光谱估计的平滑先验的相关长度</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Smoothness σ:</source>
+        <translation>平滑度 σ：</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Regularisation, relative to the mean channel energy: larger is smoother and less noisy</source>
+        <translation>正则化（相对于通道平均能量）：越大越平滑、噪声越小</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Regularisation α:</source>
+        <translation>正则化 α：</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Grey world</source>
+        <translation>灰度世界</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>White patch</source>
+        <translation>白块</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Reference area</source>
+        <translation>参考区域</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>None (equal-energy light)</source>
+        <translation>无（等能光源）</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>White balance:</source>
+        <translation>白平衡：</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Pick reference area</source>
+        <translation>选择参考区域</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>This percentile of max(R, G, B) is shown as full brightness</source>
+        <translation>max(R, G, B) 的该百分位数显示为满亮度</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Exposure:</source>
+        <translation>曝光：</translation>
+    </message>
+    <message>
+        <location line="+19"/>
+        <source>Export</source>
+        <translation>导出</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>ENVI (.hdr + .img)</source>
+        <translation>ENVI (.hdr + .img)</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>MATLAB (.mat)</source>
+        <translation>MATLAB (.mat)</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Multi-page TIFF</source>
+        <translation>多页 TIFF</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>The standard exchange format for hyperspectral cubes: ENVI, Spectral Python, MATLAB hypercube, QGIS / GDAL</source>
+        <translation>高光谱数据立方体的标准交换格式：ENVI、Spectral Python、MATLAB hypercube、QGIS / GDAL</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>32-bit float</source>
+        <translation>32 位浮点</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>16-bit unsigned</source>
+        <translation>16 位无符号</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Rounded and clipped to 0 … 65535: for raw counts only</source>
+        <translation>四舍五入并截取到 0 … 65535：仅适用于原始计数</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Unprocessed cube</source>
+        <translation>未处理的数据立方体</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Save the cube as extracted, without the processing steps</source>
+        <translation>保存提取后的数据立方体，不含处理步骤</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Save cube…</source>
+        <translation>保存数据立方体…</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Save view (.png)…</source>
+        <translation>保存视图 (.png)…</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Save spectra (.csv)…</source>
+        <translation>保存光谱 (.csv)…</translation>
+    </message>
+    <message>
+        <location line="+31"/>
+        <source>Click a pixel or drag an area to keep its spectrum. The wheel zooms; drag with the middle button or with Ctrl held to pan. Right-click a box&apos;s label to remove it.</source>
+        <translation>单击像素或拖出区域以保留其光谱。滚轮缩放；按住鼠标中键或按住 Ctrl 拖动可平移。右键单击方框的标签可将其删除。</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>1 view</source>
+        <translation>1 个视图</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>2 views</source>
+        <translation>2 个视图</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>4 views</source>
+        <translation>4 个视图</translation>
+    </message>
+    <message>
+        <location line="+219"/>
+        <source>Pixels further than this angle from every drawn area are left unmatched</source>
+        <translation>与所有绘制区域的夹角都大于此值的像素不进行匹配</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Shade by similarity</source>
+        <translation>按相似度明暗</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Full colour where the spectrum is the same as the area&apos;s, darker the more it differs</source>
+        <translation>光谱与区域相同处为全色，差异越大越暗</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Unmatched: image</source>
+        <translation>未匹配：显示图像</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Unmatched: black</source>
+        <translation>未匹配：黑色</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Max. angle:</source>
+        <translation>最大夹角：</translation>
+    </message>
+    <message>
+        <location line="+978"/>
+        <source>Raw mosaic</source>
+        <translation>原始马赛克</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Band</source>
+        <translation>波段</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>All bands</source>
+        <translation>全部波段</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Colour (sRGB)</source>
+        <translation>彩色 (sRGB)</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>False colour</source>
+        <translation>伪彩色</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Principal components</source>
+        <translation>主成分</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Spectral index</source>
+        <translation>光谱指数</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Similar areas (spectral angle)</source>
+        <translation>相似区域（光谱角）</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Classes (k-means)</source>
+        <translation>类别（k 均值）</translation>
+    </message>
+    <message>
+        <location line="+303"/>
+        <source>Draw areas with the spectrum tool: every pixel takes the colour of the area it resembles most.</source>
+        <translation>请用光谱工具绘制区域：每个像素将显示为与其最相似区域的颜色。</translation>
+    </message>
+    <message>
+        <location line="+19"/>
+        <source>unmatched %1 %</source>
+        <translation>未匹配 %1 %</translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>A/B compares the processed cube with the unprocessed one: turn on a processing step first</source>
+        <translation>A/B 用于对比处理后与未处理的数据立方体：请先开启一个处理步骤</translation>
+    </message>
+    <message>
+        <location line="-1571"/>
+        <source>View:</source>
+        <translation>视图：</translation>
+    </message>
+    <message>
+        <location line="-489"/>
+        <source>Click a view to choose what it shows in View: and the options below the image</source>
+        <translation>点击一个视图，即可在“视图：”和图像下方的选项中选择它显示的内容</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Refresh this view: draw it again from the current settings</source>
+        <translation>刷新此视图：按当前设置重新绘制</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Reset this view: its default view mode, band and false-colour bands, fitted to the window</source>
+        <translation>重置此视图：恢复其默认视图模式、波段和伪彩色波段，并适应窗口</translation>
+    </message>
+    <message>
+        <location line="+77"/>
+        <source>Spectra</source>
+        <translation>光谱</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Scores (PCA)</source>
+        <translation>得分 (PCA)</translation>
+    </message>
+    <message>
+        <location line="+53"/>
+        <source>Correction</source>
+        <translation>校正</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Settings…</source>
+        <translation>设置…</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Spectral response details, spectral correction, exposure times, sensor profile</source>
+        <translation>光谱响应详情、光谱校正、曝光时间、传感器配置</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <location line="+2678"/>
+        <source>No spectral response.</source>
+        <translation>无光谱响应。</translation>
+    </message>
+    <message>
+        <location line="-2676"/>
+        <source>Spectral correction</source>
+        <translation>光谱校正</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Turn the 16 overlapping channels into narrow bands at the channel peaks (details under Settings…). Needs the spectral response or a correction matrix.</source>
+        <translation>将 16 个相互重叠的通道转换为通道峰值处的窄波段（详见“设置…”）。需要光谱响应或校正矩阵。</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>White frame</source>
+        <translation>白参考帧</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Dark frame</source>
+        <translation>暗帧</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Optional: a capture of a white reference filling the view, for a per-pixel flat field (gives reflectance)</source>
+        <translation>可选：白参考充满视野时拍摄的图像，用于逐像素平场校正（得到反射率）</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Optional: a capture with the lens covered, subtracted pixel by pixel (replaces the black level)</source>
+        <translation>可选：遮住镜头时拍摄的图像，逐像素扣除（代替黑电平）</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>From file…</source>
+        <translation>从文件…</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Open white reference frame</source>
+        <translation>打开白参考帧</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Open dark frame</source>
+        <translation>打开暗帧</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Images (*.tif *.tiff *.png *.mat);;All files (*)</source>
+        <translation>图像 (*.tif *.tiff *.png *.mat);;所有文件 (*)</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>From workspace…</source>
+        <translation>从工作区…</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <location line="+2702"/>
+        <location line="+1"/>
+        <location line="+12"/>
+        <source>none</source>
+        <translation>无</translation>
+    </message>
+    <message>
+        <location line="-2712"/>
+        <source>Remove the white frame</source>
+        <translation>移除白参考帧</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Remove the dark frame</source>
+        <translation>移除暗帧</translation>
+    </message>
+    <message>
+        <location line="+141"/>
+        <source>Absorbance (−log₁₀ R)</source>
+        <translation>吸光度 (−log₁₀ R)</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Turn reflectance into absorbance, which is roughly proportional to concentration (Beer–Lambert). Use with reflectance or a white frame.</source>
+        <translation>将反射率转换为吸光度，后者大致与浓度成正比（比尔-朗伯定律）。请与反射率或白参考帧一起使用。</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>None</source>
+        <translation>无</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>SNV</source>
+        <translation>SNV</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>MSC</source>
+        <translation>MSC</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Unit length</source>
+        <translation>单位长度</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Unit area</source>
+        <translation>单位面积</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Maximum = 1</source>
+        <translation>最大值 = 1</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Standard normal variate: every spectrum minus its mean, divided by its standard deviation. Removes brightness and scatter differences (shading, surface).</source>
+        <translation>标准正态变量变换：每条光谱减去其均值后除以其标准差。消除亮度和散射差异（阴影、表面）。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Multiplicative scatter correction: every spectrum fitted to the mean spectrum (offset + slope) and corrected by the fit.</source>
+        <translation>多元散射校正：每条光谱对平均光谱进行拟合（偏移 + 斜率），并按拟合结果校正。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Every spectrum divided by its length: keeps only the shape (as the spectral angle).</source>
+        <translation>每条光谱除以其长度：只保留形状（与光谱角相同）。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Every spectrum divided by the sum of its values.</source>
+        <translation>每条光谱除以其数值之和。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Every spectrum divided by its largest value.</source>
+        <translation>每条光谱除以其最大值。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Spectrum normalisation: removes differences in brightness, so spectra compare by shape</source>
+        <translation>光谱归一化：消除亮度差异，使光谱按形状比较</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Normalise:</source>
+        <translation>归一化：</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>No smoothing</source>
+        <translation>不平滑</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Smooth</source>
+        <translation>平滑</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>1st derivative</source>
+        <translation>一阶导数</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>2nd derivative</source>
+        <translation>二阶导数</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Savitzky–Golay filter along the spectrum: smoothing, or a derivative, which removes offsets (1st) and slopes (2nd) and sharpens overlapping features. With 16 bands, keep the window small.</source>
+        <translation>沿光谱方向的 Savitzky–Golay 滤波：平滑或求导；导数可消除偏移（一阶）和斜率（二阶），并使重叠特征更清晰。只有 16 个波段时，窗口宜小。</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>window </source>
+        <translation>窗口 </translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Number of bands in the window (odd)</source>
+        <translation>窗口内的波段数（奇数）</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>order </source>
+        <translation>阶数 </translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Order of the polynomial fitted in the window</source>
+        <translation>窗口内拟合多项式的阶数</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Savitzky–Golay:</source>
+        <translation>Savitzky–Golay：</translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>Order: reflectance → MNF → guided → anti-aliasing → absorbance → normalise → Savitzky–Golay → upscale.</source>
+        <translation>顺序：反射率 → MNF → 引导滤波 → 抗混叠 → 吸光度 → 归一化 → Savitzky–Golay → 放大。</translation>
+    </message>
+    <message>
+        <location line="+38"/>
+        <source>Needs the spectral response (Correction panel).</source>
+        <translation>需要光谱响应（校正面板）。</translation>
+    </message>
+    <message>
+        <location line="+82"/>
+        <source>Pan and zoom</source>
+        <translation>平移和缩放</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Spectrum: click a pixel or drag an area</source>
+        <translation>光谱：单击像素或拖出区域</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Pick colour reference area</source>
+        <translation>选择白平衡参考区域</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Pick reference for similar areas</source>
+        <translation>选择相似区域的参考</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Mouse:</source>
+        <translation>鼠标：</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Show the cube in two or four views side by side. Click a view to make it the active one: View: and the options below the image then set what it shows. Zoom, pan and the mouse pointer follow in all of them.</source>
+        <translation>以两个或四个并排视图显示数据立方体。点击一个视图使其成为当前视图：“视图：”和图像下方的选项随后设置它显示的内容。缩放、平移和鼠标指针在所有视图中同步。</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Refresh</source>
+        <translation>刷新</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Make the cube again from the source with the current settings (extraction, correction, processing) and draw every view again</source>
+        <translation>按当前设置（提取、校正、处理）从源图像重新生成数据立方体，并重新绘制所有视图</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <location line="+9"/>
+        <source>Reset</source>
+        <translation>重置</translation>
+    </message>
+    <message>
+        <location line="-7"/>
+        <source>Turn all processing off, set colour reconstruction back to its defaults and every view back to its default mode, band and zoom. The source, extraction settings, spectral response, correction, reference frames and drawn areas are kept.</source>
+        <translation>关闭所有处理，将颜色重建恢复为默认设置，并将每个视图恢复为默认模式、波段和缩放。源图像、提取设置、光谱响应、校正、参考帧和绘制的区域保持不变。</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Turn all processing off and set colour reconstruction and every view back to their defaults?</source>
+        <translation>关闭所有处理，并将颜色重建和所有视图恢复为默认设置？</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <location line="+1515"/>
+        <source>Compare with the unprocessed cube: drag the divider across the image</source>
+        <translation>与未处理的数据立方体对比：在图像上拖动分隔线</translation>
+    </message>
+    <message>
+        <location line="-1486"/>
+        <source>The raw sensor image, before extraction.</source>
+        <translation>提取前的原始传感器图像。</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Band:</source>
+        <translation>波段：</translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>All bands with one shared contrast, channel 1 at the top left.</source>
+        <translation>全部波段使用同一对比度，通道 1 在左上角。</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Spectrum per pixel from the spectral response (Wiener estimate) → CIE 1931 XYZ → white balance → sRGB, as hsi_reconstruct.m. Without a spectral response, a natural false-colour picture is shown.</source>
+        <translation>由光谱响应估计每个像素的光谱（维纳估计）→ CIE 1931 XYZ → 白平衡 → sRGB，与 hsi_reconstruct.m 相同。未加载光谱响应时显示接近自然色的伪彩色图像。</translation>
+    </message>
+    <message>
+        <location line="+20"/>
+        <source>Natural</source>
+        <translation>自然色</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Most contrast</source>
+        <translation>最大对比</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>The three least correlated bands</source>
+        <translation>相关性最低的三个波段</translation>
+    </message>
+    <message>
+        <location line="+27"/>
+        <source>Custom</source>
+        <translation>自定义</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Bands as b1 … b16, or R&lt;nm&gt; for the band nearest a wavelength (needs the spectral response); + − × / ^ ( ), sqrt, abs, log, exp</source>
+        <translation>波段写作 b1 … b16，或用 R&lt;nm&gt; 表示最接近该波长的波段（需要光谱响应）；+ − × / ^ ( )、sqrt、abs、log、exp</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Grey</source>
+        <translation>灰度</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Diverging</source>
+        <translation>发散</translation>
+    </message>
+    <message>
+        <location line="+25"/>
+        <source>Pixels whose spectrum is within this angle of the reference are marked</source>
+        <translation>光谱与参考之间的夹角在此范围内的像素将被标记</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Marked on the image</source>
+        <translation>在图像上标记</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Angle map</source>
+        <translation>角度图</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Pick reference</source>
+        <translation>选择参考</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <location line="+1480"/>
+        <source>Choose a reference: click a pixel or drag an area.</source>
+        <translation>选择参考：单击像素或拖出区域。</translation>
+    </message>
+    <message>
+        <location line="-1478"/>
+        <source>Threshold:</source>
+        <translation>阈值：</translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>k = </source>
+        <translation>k = </translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>By spectral shape (ignore brightness)</source>
+        <translation>按光谱形状（忽略亮度）</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Find classes</source>
+        <translation>查找类别</translation>
+    </message>
+    <message>
+        <location line="+49"/>
+        <source>Wavelength</source>
+        <translation>波长</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>x axis in nm (needs the spectral response), otherwise band numbers</source>
+        <translation>x 轴以 nm 为单位（需要光谱响应），否则为波段编号</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Normalise</source>
+        <translation>归一化</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Divide each curve by its maximum, to compare shapes</source>
+        <translation>将每条曲线除以其最大值，以比较形状</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Class means</source>
+        <translation>类别均值</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Kept points and areas:</source>
+        <translation>保留的点和区域：</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Remove</source>
+        <translation>删除</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Remove all</source>
+        <translation>全部删除</translation>
+    </message>
+    <message>
+        <location line="+29"/>
+        <source>x:</source>
+        <translation>x：</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>y:</source>
+        <translation>y：</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Load an image to see its principal component scores.</source>
+        <translation>加载图像以查看其主成分得分。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Every pixel as a point (brighter: more pixels). Drag a loop around a group of points to select those pixels in the image; right-click or Esc removes the selection. The kept areas show in their colours.</source>
+        <translation>每个像素为一个点（越亮表示像素越多）。拖动画圈围住一组点即可在图像中选中这些像素；右键或 Esc 取消选择。保留的区域以其颜色显示。</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <location line="+1831"/>
+        <source>No selection.</source>
+        <translation>未选择。</translation>
+    </message>
+    <message>
+        <location line="-1830"/>
+        <source>Clear selection</source>
+        <translation>清除选择</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Keep</source>
+        <translation>保留</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Keep the mean spectrum of the selection in the list of spectra</source>
+        <translation>将所选区域的平均光谱保留在光谱列表中</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Loadings (what each component weighs):</source>
+        <translation>载荷（各主成分的权重）：</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Loading</source>
+        <translation>载荷</translation>
+    </message>
+    <message>
+        <location line="+43"/>
+        <source>Open a raw mosaic, a cube or a spectral response</source>
+        <translation>打开原始马赛克、数据立方体或光谱响应</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Hyperspectral files (*.tif *.tiff *.png *.jpg *.jpeg *.mat *.hdr *.img *.csv *.txt);;All files (*)</source>
+        <translation>高光谱文件 (*.tif *.tiff *.png *.jpg *.jpeg *.mat *.hdr *.img *.csv *.txt);;所有文件 (*)</translation>
+    </message>
+    <message>
+        <location line="+22"/>
+        <location line="+25"/>
+        <source>Cube from %1 (%2 × %3 × %4)</source>
+        <translation>来自 %1 的数据立方体（%2 × %3 × %4）</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <location line="+1989"/>
+        <source>%1 holds no image.</source>
+        <translation>%1 中没有图像。</translation>
+    </message>
+    <message>
+        <location line="-1984"/>
+        <location line="+35"/>
+        <source>%1 · %2 · %3</source>
+        <translation>%1 · %2 · %3</translation>
+    </message>
+    <message>
+        <location line="-33"/>
+        <source> · frame 1 of %1 (use a tab and “Import from workspace” for the mean)</source>
+        <translation> · 第 1 帧，共 %1 帧（如需均值，请在标签页中加载后“从工作区导入”）</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>%1 · %2 %3</source>
+        <translation>%1 · %2 %3</translation>
+    </message>
+    <message>
+        <location line="+926"/>
+        <source>Processing and views reset to their defaults.</source>
+        <translation>处理和视图已恢复为默认设置。</translation>
+    </message>
+    <message>
+        <location line="+954"/>
+        <source>%1 · %2 channels</source>
+        <translation>%1 · %2 个通道</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>%1 · colour matrix only</source>
+        <translation>%1 · 仅颜色矩阵</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Correction: %1 % residual, noise × %2</source>
+        <translation>校正：残差 %1 %，噪声 × %2</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Correction: %1, noise × %2</source>
+        <translation>校正：%1，噪声 × %2</translation>
+    </message>
+    <message>
+        <location line="+30"/>
+        <source>%1
+%2</source>
+        <translation>%1
+%2</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>%1
+%2
+Filter peaks (nm): %3
+Peak widths, FWHM (nm): %4</source>
+        <translation>%1
+%2
+滤光片峰值 (nm)：%3
+峰宽，半高宽 (nm)：%4</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Dark: %1</source>
+        <translation>暗帧：%1</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>White: %1</source>
+        <translation>白参考帧：%1</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>The frames apply to raw mosaics, not to a cube opened from a file.</source>
+        <translation>参考帧作用于原始马赛克图像，不作用于从文件打开的数据立方体。</translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Not used: the dark frame is subtracted instead.</source>
+        <translation>未使用：改为扣除暗帧。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>The %1 frame is %2 × %3, the image %4 × %5: they must be the same size.</source>
+        <translation>%1 为 %2 × %3，图像为 %4 × %5：两者尺寸必须相同。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>white</source>
+        <translation>白参考帧</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>dark</source>
+        <translation>暗帧</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Reference frames apply to raw mosaics; this cube was opened from a file.</source>
+        <translation>参考帧作用于原始马赛克图像；此数据立方体是从文件打开的。</translation>
+    </message>
+    <message>
+        <location line="+30"/>
+        <source> (mean of %1 frames)</source>
+        <translation>（%1 帧的平均）</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>White reference frame from workspace</source>
+        <translation>从工作区选择白参考帧</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Dark frame from workspace</source>
+        <translation>从工作区选择暗帧</translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Save sensor profile</source>
+        <translation>保存传感器配置</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Sensor profiles (*.iatsensor)</source>
+        <translation>传感器配置 (*.iatsensor)</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Load sensor profile</source>
+        <translation>加载传感器配置</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sensor profiles (*.iatsensor);;All files (*)</source>
+        <translation>传感器配置 (*.iatsensor);;所有文件 (*)</translation>
+    </message>
+    <message>
+        <location line="+30"/>
+        <source>Saved sensor profile %1</source>
+        <translation>已保存传感器配置 %1</translation>
+    </message>
+    <message>
+        <location line="+53"/>
+        <source>Sensor profile loaded: %1</source>
+        <translation>已加载传感器配置：%1</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Sensor profile loaded; not found: %1</source>
+        <translation>已加载传感器配置；未找到：%1</translation>
+    </message>
+    <message>
+        <location line="-2012"/>
+        <source>White area: rows %1–%2, columns %3–%4</source>
+        <translation>白参考区域：第 %1–%2 行，第 %3–%4 列</translation>
+    </message>
+    <message>
+        <location line="+22"/>
+        <source>Layout: %1</source>
+        <translation>排列：%1</translation>
+    </message>
+    <message>
+        <location line="+90"/>
+        <source>The mosaic layout is not valid: every channel 1–16 must appear exactly once.</source>
+        <translation>马赛克排列无效：通道 1–16 必须各出现一次。</translation>
+    </message>
+    <message>
+        <location line="+1356"/>
+        <source>Value (DN)</source>
+        <translation>数值 (DN)</translation>
+    </message>
+    <message>
+        <location line="-1169"/>
+        <source>No cube yet.</source>
+        <translation>尚无数据立方体。</translation>
+    </message>
+    <message>
+        <location line="-719"/>
+        <source>About 610, 550 and 490 nm</source>
+        <translation>约 610、550 和 490 nm</translation>
+    </message>
+    <message>
+        <location line="+722"/>
+        <source>Cube: %1 × %2 × %3 bands</source>
+        <translation>数据立方体：%1 × %2 × %3 个波段</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>, %1 × %2 after processing</source>
+        <translation>，处理后 %1 × %2</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>, %1–%2 nm</source>
+        <translation>，%1–%2 nm</translation>
+    </message>
+    <message>
+        <location line="+44"/>
+        <location line="+6"/>
+        <source>Band %1</source>
+        <translation>波段 %1</translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>Load spectral response</source>
+        <translation>加载光谱响应</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Spectral response (*.mat *.csv *.txt);;All files (*)</source>
+        <translation>光谱响应 (*.mat *.csv *.txt);;所有文件 (*)</translation>
+    </message>
+    <message>
+        <location line="+28"/>
+        <source>Spectral response loaded: %1</source>
+        <translation>已加载光谱响应：%1</translation>
+    </message>
+    <message>
+        <location line="+59"/>
+        <source>Choose a reference area for the white balance (Pick reference area); grey world is used until then.</source>
+        <translation>请为白平衡选择参考区域（选择参考区域）；在此之前使用灰度世界。</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>The colour matrix could not be computed (singular matrix or a black reference area).</source>
+        <translation>无法计算颜色矩阵（矩阵奇异或参考区域为黑色）。</translation>
+    </message>
+    <message>
+        <location line="+141"/>
+        <source>Click a pixel or drag an area to keep its spectrum.</source>
+        <translation>单击像素或拖出区域以保留其光谱。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Drag a rectangle over the white reference.</source>
+        <translation>在白参考物上拖出一个矩形。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Drag a rectangle over a white or grey area for the white balance.</source>
+        <translation>在白色或灰色区域上拖出矩形作为白平衡参考。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Click a pixel or drag an area: similar areas will be marked.</source>
+        <translation>单击像素或拖出区域：将标记出相似区域。</translation>
+    </message>
+    <message>
+        <location line="+66"/>
+        <source>Match to drawn areas</source>
+        <translation>匹配绘制区域</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Every pixel in the colour of the drawn area whose spectrum it resembles most (spectral angle mapper classification), darker the less it resembles it</source>
+        <translation>每个像素显示为光谱与其最相似的绘制区域的颜色（光谱角制图分类），相似度越低越暗</translation>
+    </message>
+    <message>
+        <location line="+234"/>
+        <source>Red, green, blue = first three principal components. Variance: %1</source>
+        <translation>红、绿、蓝 = 前三个主成分。方差：%1</translation>
+    </message>
+    <message>
+        <location line="+14"/>
+        <source>Choose a preset or type a formula, e.g. (b7 - b11) / (b7 + b11).</source>
+        <translation>请选择预设或输入公式，例如 (b7 - b11) / (b7 + b11)。</translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>%1 · display range %2 … %3 (2–98 %)</source>
+        <translation>%1 · 显示范围 %2 … %3（2–98 %）</translation>
+    </message>
+    <message>
+        <location line="+20"/>
+        <source>Reference: %1 · %2 pixels (%3 %) within %4°</source>
+        <translation>参考：%1 · %2 个像素（%3 %）在 %4° 以内</translation>
+    </message>
+    <message>
+        <location line="+117"/>
+        <source>White</source>
+        <translation>白参考</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>WB</source>
+        <translation>白平衡</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+344"/>
+        <source>Reference</source>
+        <translation>参考</translation>
+    </message>
+    <message>
+        <location line="-202"/>
+        <source>Pixel (%1, %2)</source>
+        <translation>像素 (%1, %2)</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Row %1, column %2</source>
+        <translation>第 %1 行，第 %2 列</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Sensor row %1, column %2: %3 DN (channel %4)</source>
+        <translation>传感器第 %1 行，第 %2 列：%3 DN（通道 %4）</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source> · band %1: %2</source>
+        <translation> · 波段 %1：%2</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source> · index: %1</source>
+        <translation> · 指数：%1</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source> · angle to reference: %1°</source>
+        <translation> · 与参考的夹角：%1°</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source> · class %1</source>
+        <translation> · 类别 %1</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source> · matches %1 (%2°)</source>
+        <translation> · 匹配 %1（%2°）</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source> · no match within %1°</source>
+        <translation> · %1° 内无匹配</translation>
+    </message>
+    <message>
+        <location line="+33"/>
+        <source>rows %1–%2, columns %3–%4</source>
+        <translation>第 %1–%2 行，第 %3–%4 列</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Point %1</source>
+        <translation>点 %1</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <location line="+41"/>
+        <source>Area %1</source>
+        <translation>区域 %1</translation>
+    </message>
+    <message>
+        <location line="-20"/>
+        <source>pixel (%1, %2)</source>
+        <translation>像素 (%1, %2)</translation>
+    </message>
+    <message>
+        <location line="+78"/>
+        <source>Finding %1 classes …</source>
+        <translation>正在查找 %1 个类别…</translation>
+    </message>
+    <message>
+        <location line="+19"/>
+        <source>%1 · row %2, column %3</source>
+        <translation>%1 · 第 %2 行，第 %3 列</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>%1 · %2 × %3 px</source>
+        <translation>%1 · %2 × %3 像素</translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Similar area (%1 px)</source>
+        <translation>相似区域（%1 像素）</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Class %1</source>
+        <translation>类别 %1</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Selection (%1 px)</source>
+        <translation>所选区域（%1 像素）</translation>
+    </message>
+    <message>
+        <location line="+18"/>
+        <source>Absorbance</source>
+        <translation>吸光度</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Normalised value</source>
+        <translation>归一化值</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Derivative</source>
+        <translation>导数</translation>
+    </message>
+    <message>
+        <location line="+24"/>
+        <location line="+1"/>
+        <location line="+24"/>
+        <source>PC%1</source>
+        <translation>PC%1</translation>
+    </message>
+    <message>
+        <location line="-16"/>
+        <source>PC%1 (%2 %)</source>
+        <translation>PC%1 (%2 %)</translation>
+    </message>
+    <message>
+        <location line="+73"/>
+        <source>Selection %1 (%2 px)</source>
+        <translation>所选区域 %1（%2 像素）</translation>
+    </message>
+    <message>
+        <location line="+34"/>
+        <source>%1 pixels selected (%2 %)</source>
+        <translation>已选择 %1 个像素（%2 %）</translation>
+    </message>
+    <message>
+        <location line="+33"/>
+        <location line="+75"/>
+        <source>There is no cube to save.</source>
+        <translation>没有可保存的数据立方体。</translation>
+    </message>
+    <message>
+        <location line="-66"/>
+        <location line="+29"/>
+        <location line="+30"/>
+        <source>Saved %1</source>
+        <translation>已保存 %1</translation>
+    </message>
+    <message>
+        <location line="-30"/>
+        <source>Could not save %1</source>
+        <translation>无法保存 %1</translation>
+    </message>
+    <message>
+        <location line="+25"/>
+        <source>There are no spectra to save: keep a point or an area with the spectrum tool first.</source>
+        <translation>没有可保存的光谱：请先用光谱工具保留一个点或区域。</translation>
+    </message>
+    <message>
+        <location line="+18"/>
+        <source>ENVI header (*.hdr)</source>
+        <translation>ENVI 头文件 (*.hdr)</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>MAT-files (*.mat)</source>
+        <translation>MAT 文件 (*.mat)</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>TIFF files (*.tif *.tiff)</source>
+        <translation>TIFF 文件 (*.tif *.tiff)</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Save cube</source>
+        <translation>保存数据立方体</translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>Save view</source>
+        <translation>保存视图</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>PNG images (*.png)</source>
+        <translation>PNG 图像 (*.png)</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Save spectra</source>
+        <translation>保存光谱</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>CSV files (*.csv)</source>
+        <translation>CSV 文件 (*.csv)</translation>
     </message>
 </context>
 <context>
@@ -748,9 +2476,54 @@ Turn on a stage under Processing… first.</source>
     </message>
 </context>
 <context>
+    <name>iat::ImageView</name>
+    <message>
+        <location filename="../src/ui/ImageView.cpp" line="+451"/>
+        <source>Right-click to remove</source>
+        <translation>右键单击以删除</translation>
+    </message>
+</context>
+<context>
+    <name>iat::ImportImageDialog</name>
+    <message>
+        <location filename="../src/ui/ImportImageDialog.cpp" line="+18"/>
+        <source>Import from workspace</source>
+        <translation>从工作区导入</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Choose a tab, then the image to use as the raw 4 × 4 mosaic. The values are taken as they are in that tab, before any image processing.</source>
+        <translation>选择一个标签页，再选择用作原始 4 × 4 马赛克的图像。数值按该标签页中的原样获取，不经过任何图像处理。</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Tab:</source>
+        <translation>标签页：</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Image:</source>
+        <translation>图像：</translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Import</source>
+        <translation>导入</translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>No tab has an image yet.
+
+Load an image in single image mode, or light and dark frames in three-panel mode, then import it here.</source>
+        <translation>还没有标签页包含图像。
+
+请在单图像模式下加载图像，或在三面板模式下加载场景帧和暗场帧，然后在此导入。</translation>
+    </message>
+</context>
+<context>
     <name>iat::MainWindow</name>
     <message>
-        <location filename="../src/ui/MainWindow.cpp" line="+25"/>
+        <location filename="../src/ui/MainWindow.cpp" line="+26"/>
         <source>Image Analyzer Tool</source>
         <translation>Image Analyzer Tool</translation>
     </message>
@@ -776,12 +2549,12 @@ Turn on a stage under Processing… first.</source>
     </message>
     <message>
         <location line="+5"/>
-        <location line="+72"/>
+        <location line="+85"/>
         <source>Open &amp;light frames…</source>
         <translation>打开场景帧(&amp;L)…</translation>
     </message>
     <message>
-        <location line="-69"/>
+        <location line="-78"/>
         <source>Ctrl+L</source>
         <translation>Ctrl+L</translation>
     </message>
@@ -846,14 +2619,19 @@ Turn on a stage under Processing… first.</source>
         <translation>无法重新启动。请关闭程序后重新打开，以切换语言。</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+14"/>
         <source>Session %1</source>
         <translation>会话 %1</translation>
     </message>
     <message>
-        <location line="+20"/>
+        <location line="+21"/>
         <source>Open &amp;image…</source>
         <translation>打开图像(&amp;I)…</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Open raw &amp;mosaic or cube…</source>
+        <translation>打开原始马赛克或数据立方体(&amp;M)…</translation>
     </message>
     <message>
         <location line="+21"/>
@@ -1049,17 +2827,17 @@ Turn on a stage under Processing… first.</source>
 <context>
     <name>iat::ModeSwitch</name>
     <message>
-        <location filename="../src/ui/ModeSwitch.cpp" line="+55"/>
+        <location filename="../src/ui/ModeSwitch.cpp" line="+85"/>
         <source>Panel layout</source>
         <translation>面板布局</translation>
     </message>
     <message>
         <location line="+1"/>
-        <source>Single image, or three panels: light, dark and calibrated frames</source>
-        <translation>单图像，或三个面板：场景帧、暗场帧和校准帧</translation>
+        <source>Single image; three panels: light, dark and calibrated frames; or hyperspectral</source>
+        <translation>单图像；三个面板：场景帧、暗场帧和校准帧；或高光谱</translation>
     </message>
     <message>
-        <location line="+18"/>
+        <location line="+19"/>
         <source>Single image: one panel</source>
         <translation>单图像：一个面板</translation>
     </message>
@@ -1067,6 +2845,49 @@ Turn on a stage under Processing… first.</source>
         <location line="+1"/>
         <source>Three panels: light frames, dark frames and calibrated frames</source>
         <translation>三个面板：场景帧、暗场帧和校准帧</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Hyperspectral: raw 4 × 4 mosaic → 16-band cube, colour and spectra</source>
+        <translation>高光谱：原始 4 × 4 马赛克 → 16 波段数据立方体、颜色与光谱</translation>
+    </message>
+</context>
+<context>
+    <name>iat::MosaicLayoutDialog</name>
+    <message>
+        <location filename="../src/ui/MosaicLayoutDialog.cpp" line="+20"/>
+        <source>Mosaic layout</source>
+        <translation>马赛克排列</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Channel at each position of the 4 × 4 super-pixel (as seen on the sensor):</source>
+        <translation>4 × 4 超像素中每个位置的通道（按传感器上的方向）：</translation>
+    </message>
+    <message>
+        <location line="+91"/>
+        <source>Row by row (vertical)</source>
+        <translation>逐行（纵向）</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Serpentine</source>
+        <translation>蛇形</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Serpentine (vertical)</source>
+        <translation>蛇形（纵向）</translation>
+    </message>
+    <message>
+        <location line="-6"/>
+        <source>Row by row</source>
+        <translation>逐行</translation>
+    </message>
+    <message>
+        <location line="-10"/>
+        <source>Every channel 1–16 must appear exactly once. Missing: %1.</source>
+        <translation>通道 1–16 必须各出现一次。缺少：%1。</translation>
     </message>
 </context>
 <context>
@@ -1187,30 +3008,65 @@ image, right of it (B) the processed one. Drag the divider across the image.</so
 <context>
     <name>iat::SessionTab</name>
     <message>
-        <location filename="../src/ui/SessionTab.cpp" line="+163"/>
-        <location line="+248"/>
+        <location filename="../src/ui/SessionTab.cpp" line="+164"/>
+        <location line="+311"/>
         <source>image</source>
         <translation>图像</translation>
     </message>
     <message>
-        <location line="-248"/>
-        <location line="+385"/>
+        <location line="-311"/>
+        <location line="+448"/>
         <source>light frames</source>
         <translation>场景帧</translation>
     </message>
     <message>
-        <location line="-384"/>
-        <location line="+387"/>
+        <location line="-447"/>
+        <location line="+450"/>
         <source>dark frames</source>
         <translation>暗场帧</translation>
     </message>
     <message>
-        <location line="-384"/>
+        <location line="-447"/>
         <source>calibrated frames</source>
         <translation>校准帧</translation>
     </message>
     <message>
-        <location line="+51"/>
+        <location line="+52"/>
+        <source>mean of %1 frames</source>
+        <translation>%1 帧的均值</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>frame %1 of %2</source>
+        <translation>第 %1 帧，共 %2 帧</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Light frames</source>
+        <translation>场景帧</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Image</source>
+        <translation>图像</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Dark frames</source>
+        <translation>暗场帧</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>light − dark · %1 × %2</source>
+        <translation>场景 − 暗场 · %1 × %2</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Calibrated frames</source>
+        <translation>校准帧</translation>
+    </message>
+    <message>
+        <location line="+34"/>
         <source>Single image</source>
         <translation>单图像</translation>
     </message>
@@ -1218,6 +3074,11 @@ image, right of it (B) the processed one. Drag the divider across the image.</so
         <location line="+1"/>
         <source>Three panels: light frames, dark frames and calibrated frames (light − dark)</source>
         <translation>三个面板：场景帧、暗场帧和校准帧（场景 − 暗场）</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Hyperspectral: raw 4 × 4 mosaic → 16-band cube</source>
+        <translation>高光谱：原始 4 × 4 马赛克 → 16 波段数据立方体</translation>
     </message>
     <message>
         <location line="+37"/>
@@ -1597,6 +3458,46 @@ Restarting closes all tabs; images that are loaded are not kept.</source>
     </message>
 </context>
 <context>
+    <name>iat::SpectrumPlot</name>
+    <message>
+        <location filename="../src/ui/SpectrumPlot.cpp" line="+39"/>
+        <source>Value</source>
+        <translation>数值</translation>
+    </message>
+    <message>
+        <location line="+89"/>
+        <source>Hover over the image for the spectrum of a pixel;
+click or drag with the spectrum tool to keep one.</source>
+        <translation>将鼠标悬停在图像上查看像素光谱；
+用光谱工具单击或拖动以保留光谱。</translation>
+    </message>
+    <message>
+        <location line="+70"/>
+        <source>Wavelength (nm)</source>
+        <translation>波长 (nm)</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Band</source>
+        <translation>波段</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Normalised</source>
+        <translation>归一化</translation>
+    </message>
+    <message>
+        <location line="+82"/>
+        <source>Band %1 · %2 nm</source>
+        <translation>波段 %1 · %2 nm</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Band %1</source>
+        <translation>波段 %1</translation>
+    </message>
+</context>
+<context>
     <name>iat::TiffReader</name>
     <message>
         <location filename="../src/io/TiffReader.cpp" line="+75"/>
@@ -1784,6 +3685,261 @@ Restarting closes all tabs; images that are loaded are not kept.</source>
         <location line="+61"/>
         <source>Not enough memory to read the image</source>
         <translation>内存不足，无法读取图像</translation>
+    </message>
+</context>
+<context>
+    <name>iat::hsi</name>
+    <message>
+        <location filename="../src/core/Hsi.cpp" line="+208"/>
+        <source>Band %1</source>
+        <translation>波段 %1</translation>
+    </message>
+    <message>
+        <location line="+68"/>
+        <source>The mosaic layout must contain every channel 1–16 exactly once.</source>
+        <translation>马赛克排列必须恰好包含通道 1–16 各一次。</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>The image is too small for a 4 × 4 mosaic.</source>
+        <translation>图像太小，不足一个 4 × 4 马赛克。</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>Cropped from %1 × %2 to %3 × %4 (a multiple of 4).</source>
+        <translation>已从 %1 × %2 裁剪为 %3 × %4（4 的倍数）。</translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Values exceed %1: treated as MSB-aligned and shifted down.</source>
+        <translation>数值超过 %1：视为高位对齐数据并已右移。</translation>
+    </message>
+    <message>
+        <location filename="../src/core/HsiAnalysis.cpp" line="+499"/>
+        <source>Empty formula.</source>
+        <translation>公式为空。</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <location line="+189"/>
+        <source>Unexpected “%1” at position %2.</source>
+        <translation>位置 %2 处出现意外的“%1”。</translation>
+    </message>
+    <message>
+        <location line="-88"/>
+        <source>The formula ends too early.</source>
+        <translation>公式不完整。</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <location line="+74"/>
+        <source>A closing parenthesis is missing.</source>
+        <translation>缺少右括号。</translation>
+    </message>
+    <message>
+        <location line="-52"/>
+        <source>“%1” is not a number.</source>
+        <translation>“%1”不是数字。</translation>
+    </message>
+    <message>
+        <location line="+21"/>
+        <source>There is no band %1 (the cube has bands 1–%2).</source>
+        <translation>没有波段 %1（数据立方体的波段为 1–%2）。</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>R%1 needs the band wavelengths: load a spectral response (QE) file first, or use b1 … b%2.</source>
+        <translation>R%1 需要波段波长：请先加载光谱响应（QE）文件，或使用 b1 … b%2。</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>%1 nm is outside the sensor&apos;s range (%2–%3 nm).</source>
+        <translation>%1 nm 超出传感器的范围（%2–%3 nm）。</translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>%1 must be followed by “(”.</source>
+        <translation>%1 后面必须跟“(”。</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>Unknown name “%1”. Use b1 … b%2 for bands, R&lt;nm&gt; for wavelengths.</source>
+        <translation>未知名称“%1”。波段请用 b1 … b%2，波长请用 R&lt;nm&gt;。</translation>
+    </message>
+    <message>
+        <location filename="../src/io/HsiCubeIo.cpp" line="+115"/>
+        <location line="+230"/>
+        <location line="+112"/>
+        <source>There is no cube to save.</source>
+        <translation>没有可保存的数据立方体。</translation>
+    </message>
+    <message>
+        <location line="-265"/>
+        <location line="+6"/>
+        <location line="+337"/>
+        <location line="+333"/>
+        <location line="+99"/>
+        <source>Could not write %1: %2</source>
+        <translation>无法写入 %1：%2</translation>
+    </message>
+    <message>
+        <location line="-754"/>
+        <source>Could not open the ENVI header %1.</source>
+        <translation>无法打开 ENVI 头文件 %1。</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>%1 is not an ENVI header (it does not start with “ENVI”).</source>
+        <translation>%1 不是 ENVI 头文件（不以“ENVI”开头）。</translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>The ENVI header does not give the size (samples, lines, bands).</source>
+        <translation>ENVI 头文件中没有尺寸信息（samples、lines、bands）。</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>ENVI data type %1 is not supported (complex data?).</source>
+        <translation>不支持 ENVI 数据类型 %1（复数数据？）。</translation>
+    </message>
+    <message>
+        <location line="+20"/>
+        <source>The data file for %1 was not found (expected .img, .dat, .raw or no extension).</source>
+        <translation>未找到 %1 的数据文件（应为 .img、.dat、.raw 或无扩展名）。</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <location line="+390"/>
+        <location line="+130"/>
+        <location line="+93"/>
+        <source>Could not open %1: %2</source>
+        <translation>无法打开 %1：%2</translation>
+    </message>
+    <message>
+        <location line="-606"/>
+        <source>%1 is too short: %2 bytes expected after the header offset, %3 found.</source>
+        <translation>%1 太短：头偏移之后应有 %2 字节，实际 %3 字节。</translation>
+    </message>
+    <message>
+        <location line="+138"/>
+        <source>%1 has no 3-D array (rows × columns × bands).</source>
+        <translation>%1 中没有三维数组（行 × 列 × 波段）。</translation>
+    </message>
+    <message>
+        <location line="+32"/>
+        <source>Variable “%1” used as the cube.</source>
+        <translation>已将变量“%1”用作数据立方体。</translation>
+    </message>
+    <message>
+        <location line="+22"/>
+        <source>The cube is too large for a classic TIFF file (4 GB). Save it as ENVI instead.</source>
+        <translation>数据立方体超出经典 TIFF 文件的上限（4 GB），请改存为 ENVI。</translation>
+    </message>
+    <message>
+        <location line="+149"/>
+        <source>%1: %2 has %3 × %4 values, but there are %5 wavelengths.</source>
+        <translation>%1：%2 有 %3 × %4 个值，但波长有 %5 个。</translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>%1 channels, %2 wavelengths (%3–%4 nm), from %5 and %6.</source>
+        <translation>%1 个通道，%2 个波长（%3–%4 nm），取自 %5 和 %6。</translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Colour matrix reconRGB (3 × %1), used as it is: its white balance was fixed when it was made.</source>
+        <translation>颜色矩阵 reconRGB（3 × %1）按原样使用：其白平衡在生成时已经确定。</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>%1 has neither a wavelength vector (lambda) with a QE matrix (QE_percent or QE) nor a 3 × N matrix reconRGB.</source>
+        <translation>%1 中既没有波长向量（lambda）及 QE 矩阵（QE_percent 或 QE），也没有 3 × N 矩阵 reconRGB。</translation>
+    </message>
+    <message>
+        <location line="+35"/>
+        <source>%1 has no header row with Band1 … BandN columns.</source>
+        <translation>%1 中没有包含 Band1 … BandN 列的表头行。</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>%1: the band columns must be Band1 … Band%2; Band%3 is missing.</source>
+        <translation>%1：波段列应为 Band1 … Band%2；缺少 Band%3。</translation>
+    </message>
+    <message>
+        <location line="+25"/>
+        <source>%1 has fewer than 3 rows of data under the header.</source>
+        <translation>%1 的表头下数据少于 3 行。</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>%1 channels, %2 wavelengths (%3–%4 nm).</source>
+        <translation>%1 个通道，%2 个波长（%3–%4 nm）。</translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>The wavelengths in %1 do not increase.</source>
+        <translation>%1 中的波长不是递增的。</translation>
+    </message>
+    <message>
+        <location line="+33"/>
+        <source>%1 has no correction matrix (a variable correction, correctionMatrix or C with %2 columns).</source>
+        <translation>%1 中没有校正矩阵（名为 correction、correctionMatrix 或 C 且有 %2 列的变量）。</translation>
+    </message>
+    <message>
+        <location line="+48"/>
+        <source>%1 holds no matrix.</source>
+        <translation>%1 中没有矩阵。</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>%1: every row must have %2 values (one per channel), or %3 with the centre wavelength first.</source>
+        <translation>%1：每行必须有 %2 个数值（每个通道一个），或 %3 个且第一个为中心波长。</translation>
+    </message>
+    <message>
+        <location line="+68"/>
+        <source>%1 is not a sensor profile.</source>
+        <translation>%1 不是传感器配置文件。</translation>
+    </message>
+    <message>
+        <location filename="../src/core/HsiCorrection.cpp" line="+22"/>
+        <source>There is no image to correct.</source>
+        <translation>没有可校正的图像。</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>The reference frames must have the same size as the image (%1 × %2): dark %3, white %4.</source>
+        <translation>参考帧必须与图像尺寸相同（%1 × %2）：暗帧 %3，白参考帧 %4。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <location line="+1"/>
+        <source>none</source>
+        <translation>无</translation>
+    </message>
+    <message>
+        <location line="+28"/>
+        <source>Flat field: (image − dark) / (white − dark).</source>
+        <translation>平场校正：(图像 − 暗帧) / (白参考 − 暗帧)。</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Flat field: image / white.</source>
+        <translation>平场校正：图像 / 白参考。</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Dark frame subtracted.</source>
+        <translation>已扣除暗帧。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Exposure: scene %1 ms, white %2 ms.</source>
+        <translation>曝光：场景 %1 ms，白参考 %2 ms。</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>%1 pixels have no signal in the white frame and are left empty.</source>
+        <translation>%1 个像素在白参考帧中无信号，保留为空。</translation>
     </message>
 </context>
 <context>

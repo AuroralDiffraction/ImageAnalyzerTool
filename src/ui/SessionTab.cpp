@@ -4,6 +4,7 @@
 #include "io/ImageFileReader.h"
 #include "io/MatFileReader.h"
 #include "io/MatFileWriter.h"
+#include "ui/HsiWorkspace.h"
 
 #include <QDir>
 #include <QFileDialog>
@@ -160,7 +161,7 @@ ImagePanel* SessionTab::panel(Target t) const
 QString SessionTab::targetName(Target t) const
 {
     switch (t) {
-    case Target::Light: return isSingleImage() ? tr("image") : tr("light frames");
+    case Target::Light: return !threePanelsShown() ? tr("image") : tr("light frames");
     case Target::Dark: return tr("dark frames");
     case Target::Calibrated: break;
     }
@@ -178,10 +179,73 @@ bool SessionTab::isAutoCalibration() const
 
 void SessionTab::applyLayoutMode()
 {
-    const bool single = isSingleImage();
-    m_lightPanel->setSingleImage(single);
-    m_darkPanel->setVisible(!single);
-    m_calPanel->setVisible(!single);
+    const bool triple = threePanelsShown();
+    const bool hsi = isHyperspectral();
+    m_lightPanel->setSingleImage(!triple);
+    m_darkPanel->setVisible(triple);
+    m_calPanel->setVisible(triple);
+    m_splitter->setVisible(!hsi);
+    if (hsi)
+        hsiWorkspace()->show();
+    else if (m_hsi)
+        m_hsi->hide();
+}
+
+HsiWorkspace* SessionTab::hsiWorkspace()
+{
+    if (!m_hsi) {
+        m_hsi = new HsiWorkspace(this);
+        m_hsi->hide();
+        layout()->addWidget(m_hsi);
+        m_hsi->setImportProvider(m_importProvider);
+        connect(m_hsi, &HsiWorkspace::statusMessage, this, &SessionTab::statusMessage);
+        connect(m_hsi, &HsiWorkspace::busyChanged, this, [this](bool busy) { addPending(busy ? 1 : -1); });
+    }
+    return m_hsi;
+}
+
+void SessionTab::setImportProvider(ImportProvider provider)
+{
+    m_importProvider = std::move(provider);
+    if (m_hsi)
+        m_hsi->setImportProvider(m_importProvider);
+}
+
+QList<ImportCandidate> SessionTab::importCandidates(const QString& tabName) const
+{
+    QList<ImportCandidate> out;
+    auto describe = [](const Source& s, const ImagePanel* p) {
+        QString what;
+        if (s.frames() > 1)
+            what = p->frameMode() == FrameMode::Mean ? tr("mean of %1 frames").arg(s.frames())
+                                                     : tr("frame %1 of %2").arg(p->currentFrame() + 1).arg(s.frames());
+        const QString size = QStringLiteral("%1 × %2").arg(s.shown.height()).arg(s.shown.width());
+        const QString file = s.paths.isEmpty() ? QString() : QFileInfo(s.paths.first()).fileName();
+        QStringList parts;
+        for (const QString& x : {file, what, size})
+            if (!x.isEmpty())
+                parts << x;
+        return parts.join(QStringLiteral(" · "));
+    };
+    if (!m_light.shown.isNull())
+        out << ImportCandidate{tabName, m_layout == LayoutMode::Triple ? tr("Light frames") : tr("Image"),
+                               describe(m_light, m_lightPanel), m_light.shown};
+    if (!m_dark.shown.isNull())
+        out << ImportCandidate{tabName, tr("Dark frames"), describe(m_dark, m_darkPanel), m_dark.shown};
+    // The calibrated image: loaded from a file, or light − dark now (also
+    // while the panel is hidden and not yet recalculated).
+    Image2D cal;
+    QString calInfo;
+    if (!m_cal.isNull()) {
+        cal = m_cal.shown;
+        calInfo = describe(m_cal, m_calPanel);
+    } else if (!m_light.shown.isNull() && !m_dark.shown.isNull()) {
+        cal = processing::subtract(m_light.shown, m_dark.shown);
+        calInfo = tr("light − dark · %1 × %2").arg(cal.height()).arg(cal.width());
+    }
+    if (!cal.isNull())
+        out << ImportCandidate{tabName, tr("Calibrated frames"), calInfo, cal};
+    return out;
 }
 
 void SessionTab::setLayoutMode(LayoutMode mode)
@@ -214,9 +278,9 @@ void SessionTab::setLayoutMode(LayoutMode mode)
     }
 
     emit layoutModeChanged(mode);
-    emit statusMessage(mode == LayoutMode::Single
-                           ? tr("Single image")
-                           : tr("Three panels: light frames, dark frames and calibrated frames (light − dark)"));
+    emit statusMessage(mode == LayoutMode::Single   ? tr("Single image")
+                       : mode == LayoutMode::Triple ? tr("Three panels: light frames, dark frames and calibrated frames (light − dark)")
+                                                    : tr("Hyperspectral: raw 4 × 4 mosaic → 16-band cube"));
 }
 
 // ---------------------------------------------------------------------------
@@ -268,7 +332,7 @@ QStringList SessionTab::openDialog(const QString& title, bool multiple)
 
 void SessionTab::openLightDialog()
 {
-    const QStringList paths = openDialog(isSingleImage() ? tr("Open an image: one .mat file, or one or more images")
+    const QStringList paths = openDialog(!threePanelsShown() ? tr("Open an image: one .mat file, or one or more images")
                                                          : tr("Open light frames: one .mat file, or one or more images"),
                                          true);
     if (!paths.isEmpty())
@@ -573,7 +637,7 @@ void SessionTab::updateCalibrated(bool resetContrast)
 {
     if (!isAutoCalibration())
         return;  // the panel shows an image loaded from a file
-    if (isSingleImage()) {
+    if (!threePanelsShown()) {
         // The panel is hidden: setLayoutMode() calculates it when it is shown again.
         m_calStale = true;
         m_calStaleResetContrast = m_calStaleResetContrast || resetContrast;

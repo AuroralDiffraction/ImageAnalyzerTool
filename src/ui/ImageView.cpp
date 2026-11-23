@@ -144,12 +144,112 @@ bool ImageView::nearDivider(const QPoint& viewportPos) const
     return x >= 0 && std::abs(viewportPos.x() - x) <= kDividerGrab;
 }
 
+void ImageView::setRegionTool(bool on)
+{
+    if (on == m_regionTool)
+        return;
+    m_regionTool = on;
+    m_selecting = false;
+    setDragMode(on ? QGraphicsView::NoDrag : QGraphicsView::ScrollHandDrag);
+    viewport()->setCursor(Qt::CrossCursor);
+    viewport()->update();
+}
+
+void ImageView::setOverlays(const QList<ViewOverlay>& overlays)
+{
+    m_overlays = overlays;
+    viewport()->update();
+}
+
+void ImageView::setPointers(const QList<QPointF>& imagePoints)
+{
+    if (imagePoints == m_pointers)
+        return;
+    m_pointers = imagePoints;
+    viewport()->update();
+}
+
+QRect ImageView::overlayLabelRect(int index) const
+{
+    if (index < 0 || index >= m_overlays.size() || m_overlays[index].label.isEmpty())
+        return {};
+    QFont f = font();
+    f.setBold(true);
+    const QFontMetrics fm(f);
+    const QRectF v = viewportTransform().mapRect(m_overlays[index].rect);
+    const QString& label = m_overlays[index].label;
+    return QRectF(v.left(), v.top() - fm.height() - 4, fm.horizontalAdvance(label) + 8, fm.height() + 4).toAlignedRect();
+}
+
+int ImageView::labelAt(const QPoint& pos) const
+{
+    for (int i = int(m_overlays.size()) - 1; i >= 0; --i)
+        if (m_overlays[i].removable && overlayLabelRect(i).contains(pos))
+            return i;
+    return -1;
+}
+
+void ImageView::drawOverlays(QPainter* painter)
+{
+    // Overlays and the rectangle being drawn, in window coordinates (thin
+    // lines at any zoom).
+    if (!m_overlays.isEmpty() || m_selecting || !m_pointers.isEmpty()) {
+        painter->save();
+        const QTransform toView = viewportTransform();
+        painter->resetTransform();
+        painter->setRenderHint(QPainter::Antialiasing);
+        QFont f = font();
+        f.setBold(true);
+        painter->setFont(f);
+        const QFontMetrics fm(f);
+        auto drawBox = [&](const QRectF& r, const QColor& colour, const QString& label, bool dashed) {
+            const QRectF v = toView.mapRect(r);
+            painter->setBrush(Qt::NoBrush);
+            painter->setPen(QPen(QColor(0, 0, 0, 160), 3.0));
+            painter->drawRect(v);
+            QPen pen(colour, 1.6);
+            if (dashed)
+                pen.setStyle(Qt::DashLine);
+            painter->setPen(pen);
+            painter->drawRect(v);
+            if (!label.isEmpty()) {
+                const QRectF t(v.left(), v.top() - fm.height() - 4, fm.horizontalAdvance(label) + 8, fm.height() + 4);
+                painter->setPen(Qt::NoPen);
+                painter->setBrush(QColor(0, 0, 0, 150));
+                painter->drawRoundedRect(t, 3, 3);
+                painter->setPen(colour.lighter(130));
+                painter->drawText(t, Qt::AlignCenter, label);
+            }
+        };
+        for (const ViewOverlay& o : std::as_const(m_overlays))
+            drawBox(o.rect, o.color, o.label, o.dashed);
+        if (m_selecting)
+            drawBox(m_selection, QColor(255, 255, 255), QString(), true);
+        // Pointer markers: a small cross with a ring, white on a dark outline.
+        for (const QPointF& ip : std::as_const(m_pointers)) {
+            const QPointF c = toView.map(ip);
+            for (int pass = 0; pass < 2; ++pass) {
+                painter->setPen(pass == 0 ? QPen(QColor(0, 0, 0, 200), 3.5) : QPen(QColor(255, 255, 255), 1.5));
+                painter->setBrush(Qt::NoBrush);
+                painter->drawEllipse(c, 5.0, 5.0);
+                painter->drawLine(c + QPointF(-11, 0), c + QPointF(-6, 0));
+                painter->drawLine(c + QPointF(6, 0), c + QPointF(11, 0));
+                painter->drawLine(c + QPointF(0, -11), c + QPointF(0, -6));
+                painter->drawLine(c + QPointF(0, 6), c + QPointF(0, 11));
+            }
+        }
+        painter->restore();
+    }
+}
+
 void ImageView::drawForeground(QPainter* painter, const QRectF& rect)
 {
     QGraphicsView::drawForeground(painter, rect);
     const QRect vis = visibleImageRect();
-    if (!hasCompareImage() || vis.isEmpty())
+    if (!hasCompareImage() || vis.isEmpty()) {
+        drawOverlays(painter);
         return;
+    }
     const int x = compareDividerX();
 
     // A: the "before" image over everything left of the divider.
@@ -161,6 +261,7 @@ void ImageView::drawForeground(QPainter* painter, const QRectF& rect)
         painter->drawPixmap(sceneRect(), m_before, QRectF(m_before.rect()));
         painter->restore();
     }
+    drawOverlays(painter);  // over both sides
 
     // The divider, its handle and the A / B labels, in window coordinates.
     painter->save();
@@ -208,6 +309,23 @@ void ImageView::mousePressEvent(QMouseEvent* event)
     if (event->button() == Qt::LeftButton && nearDivider(event->position().toPoint())) {
         m_draggingDivider = true;  // drag the divider, not the image
         viewport()->setCursor(Qt::SplitHCursor);
+        event->accept();
+        return;
+    }
+    if (m_regionTool && hasImage()
+        && (event->button() == Qt::MiddleButton
+            || (event->button() == Qt::LeftButton && (event->modifiers() & Qt::ControlModifier)))) {
+        m_panning = true;
+        m_panLast = event->position().toPoint();
+        viewport()->setCursor(Qt::ClosedHandCursor);
+        event->accept();
+        return;
+    }
+    if (m_regionTool && event->button() == Qt::LeftButton && hasImage()) {
+        m_selecting = true;
+        m_selectStartView = event->position().toPoint();
+        m_selectStart = mapToScene(m_selectStartView);
+        m_selection = QRectF(m_selectStart, m_selectStart);
         event->accept();
         return;
     }
@@ -312,10 +430,26 @@ void ImageView::mouseMoveEvent(QMouseEvent* event)
         if (!vis.isEmpty())
             setComparePosition(double(pos.x() - vis.left()) / double(vis.width()));
         event->accept();
+    } else if (m_panning) {
+        const QPoint d = pos - m_panLast;
+        m_panLast = pos;
+        horizontalScrollBar()->setValue(horizontalScrollBar()->value() - d.x());
+        verticalScrollBar()->setValue(verticalScrollBar()->value() - d.y());
+        event->accept();
+    } else if (m_selecting) {
+        m_selection = QRectF(m_selectStart, mapToScene(pos)).normalized();
+        viewport()->update();
+        event->accept();
     } else {
         QGraphicsView::mouseMoveEvent(event);
-        if (hasCompareImage() && event->buttons() == Qt::NoButton)
-            viewport()->setCursor(nearDivider(pos) ? Qt::SplitHCursor : Qt::CrossCursor);
+        if (event->buttons() == Qt::NoButton) {
+            const bool onLabel = labelAt(pos) >= 0;
+            if (hasCompareImage() && nearDivider(pos))
+                viewport()->setCursor(Qt::SplitHCursor);
+            else
+                viewport()->setCursor(onLabel ? Qt::PointingHandCursor : Qt::CrossCursor);
+            viewport()->setToolTip(onLabel ? tr("Right-click to remove") : QString());
+        }
     }
     if (!hasImage())
         return;
@@ -333,6 +467,33 @@ void ImageView::mouseReleaseEvent(QMouseEvent* event)
     if (m_draggingDivider && event->button() == Qt::LeftButton) {
         m_draggingDivider = false;
         viewport()->setCursor(nearDivider(event->position().toPoint()) ? Qt::SplitHCursor : Qt::CrossCursor);
+        event->accept();
+        return;
+    }
+    if (m_panning && (event->button() == Qt::MiddleButton || event->button() == Qt::LeftButton)) {
+        m_panning = false;
+        viewport()->setCursor(Qt::CrossCursor);
+        event->accept();
+        return;
+    }
+    if (m_selecting && event->button() == Qt::LeftButton) {
+        m_selecting = false;
+        viewport()->update();
+        const QPoint pos = event->position().toPoint();
+        const QRect bounds(QPoint(0, 0), m_imageSize);
+        if ((pos - m_selectStartView).manhattanLength() < 4) {
+            const QPointF p = mapToScene(pos);
+            const QPoint px(int(std::floor(p.x())), int(std::floor(p.y())));
+            if (bounds.contains(px))
+                emit pixelClicked(px.x(), px.y());
+        } else {
+            const QRectF r = QRectF(m_selectStart, mapToScene(pos)).normalized();
+            const QRect pixels = QRect(QPoint(int(std::floor(r.left())), int(std::floor(r.top()))),
+                                       QPoint(int(std::ceil(r.right())) - 1, int(std::ceil(r.bottom())) - 1))
+                                     .intersected(bounds);
+            if (!pixels.isEmpty())
+                emit regionSelected(pixels);
+        }
         event->accept();
         return;
     }
@@ -371,6 +532,12 @@ void ImageView::resizeEvent(QResizeEvent* event)
 
 void ImageView::contextMenuEvent(QContextMenuEvent* event)
 {
+    const int label = labelAt(event->pos());
+    if (label >= 0) {
+        emit overlayRemoveRequested(label);
+        event->accept();
+        return;
+    }
     emit contextMenuRequested(event->globalPos());
     event->accept();
 }

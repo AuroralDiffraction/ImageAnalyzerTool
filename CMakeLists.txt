@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 
 project(ImageAnalyzerTool
-    VERSION 0.4.0
+    VERSION 0.5.0
     DESCRIPTION "Dark-frame calibration and noise analysis for image stacks (MATLAB .mat, TIFF, PNG, JPEG)"
     HOMEPAGE_URL "https://github.com/AuroralDiffraction"
     LANGUAGES CXX)
@@ -36,10 +36,16 @@ add_library(iacore STATIC
     src/core/Histogram.h        src/core/Histogram.cpp
     src/core/Processing.h       src/core/Processing.cpp
     src/core/Isp.h              src/core/Isp.cpp
+    src/core/Hsi.h              src/core/Hsi.cpp
+    src/core/HsiLinalg.h        src/core/HsiLinalg.cpp
+    src/core/HsiColour.h        src/core/HsiColour.cpp
+    src/core/HsiAnalysis.h      src/core/HsiAnalysis.cpp
+    src/core/HsiCorrection.h    src/core/HsiCorrection.cpp
     src/io/MatFileReader.h      src/io/MatFileReader.cpp
     src/io/MatFileWriter.h      src/io/MatFileWriter.cpp
     src/io/TiffReader.h         src/io/TiffReader.cpp
     src/io/ImageFileReader.h    src/io/ImageFileReader.cpp
+    src/io/HsiCubeIo.h          src/io/HsiCubeIo.cpp
 )
 target_include_directories(iacore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR}/generated)
 # Qt Gui only for QImage's PNG and JPEG decoders (no widgets; works headless).
@@ -66,6 +72,12 @@ add_library(iaui STATIC
     src/ui/HistogramWidget.h    src/ui/HistogramWidget.cpp
     src/ui/ContrastControl.h    src/ui/ContrastControl.cpp
     src/ui/AboutDialog.h        src/ui/AboutDialog.cpp
+    src/ui/HsiWorkspace.h       src/ui/HsiWorkspace.cpp
+    src/ui/SpectrumPlot.h       src/ui/SpectrumPlot.cpp
+    src/ui/ScorePlot.h          src/ui/ScorePlot.cpp
+    src/ui/ImportImageDialog.h  src/ui/ImportImageDialog.cpp
+    src/ui/MosaicLayoutDialog.h src/ui/MosaicLayoutDialog.cpp
+    src/ui/CorrectionDialog.h   src/ui/CorrectionDialog.cpp
 )
 target_link_libraries(iaui PUBLIC iacore Qt6::Widgets Qt6::Concurrent)
 

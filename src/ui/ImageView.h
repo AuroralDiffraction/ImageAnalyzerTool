@@ -4,10 +4,23 @@
 #include <QImage>
 #include <QPixmap>
 #include <QPointF>
+#include <QColor>
+#include <QList>
+#include <QString>
 
 class QGraphicsPixmapItem;
 
 namespace iat {
+
+// A rectangle drawn over the image (image coordinates), e.g. a region of
+// interest with its label.
+struct ViewOverlay {
+    QRectF rect;
+    QColor color;
+    QString label;
+    bool dashed = false;
+    bool removable = false;  // right-click on the label emits overlayRemoveRequested
+};
 
 // Zoom and pan of a view, used to keep the three views of a tab in step.
 struct ViewState {
@@ -50,6 +63,23 @@ public:
     // The divider's x coordinate in the viewport, or -1 without a comparison.
     int compareDividerX() const;
 
+    // Region tool (off by default): a left-button drag draws a rectangle
+    // (regionSelected) and a click picks a pixel (pixelClicked), instead of
+    // panning. The wheel still zooms; drag with the middle button, or with
+    // Ctrl held, to pan.
+    void setRegionTool(bool on);
+    bool regionTool() const { return m_regionTool; }
+    // Rectangles drawn over the image (cleared with an empty list).
+    void setOverlays(const QList<ViewOverlay>& overlays);
+    const QList<ViewOverlay>& overlays() const { return m_overlays; }
+    // Where overlay `index`'s label is drawn, in viewport coordinates
+    // (empty if it has no label).
+    QRect overlayLabelRect(int index) const;
+    // Pointer markers (image coordinates): show where the mouse is in
+    // another view of the same scene. Empty list: none.
+    void setPointers(const QList<QPointF>& imagePoints);
+    const QList<QPointF>& pointers() const { return m_pointers; }
+
     ViewState viewState() const;
     // Applies a zoom/pan state without emitting viewStateChanged.
     void setViewState(const ViewState& state);
@@ -66,6 +96,13 @@ signals:
     // A new image of a different size was shown (and fitted).
     void imageSizeChanged();
     void contextMenuRequested(const QPoint& globalPos);
+    // Region tool: a click on pixel (x, y), 0-based.
+    void pixelClicked(int x, int y);
+    // Region tool: a rectangle drawn with the mouse, in whole image pixels
+    // (clipped to the image).
+    void regionSelected(const QRect& imageRect);
+    // Right-click on the label of a removable overlay.
+    void overlayRemoveRequested(int index);
 
 protected:
     void drawForeground(QPainter* painter, const QRectF& rect) override;
@@ -79,6 +116,7 @@ protected:
     void contextMenuEvent(QContextMenuEvent* event) override;
 
 private:
+    void drawOverlays(QPainter* painter);
     void updateSmoothing();
     void onScrolled();
     double maxZoom() const;
@@ -90,6 +128,17 @@ private:
     QSize m_imageSize;
     bool m_fitMode = true;
     int m_internal = 0;  // > 0 while the view changes itself (no viewStateChanged)
+
+    bool m_regionTool = false;
+    bool m_selecting = false;
+    QPointF m_selectStart;       // image coordinates
+    QPoint m_selectStartView;    // viewport coordinates
+    QRectF m_selection;          // image coordinates, while dragging
+    QList<ViewOverlay> m_overlays;
+    QList<QPointF> m_pointers;
+    bool m_panning = false;      // region tool: middle-button / Ctrl drag
+    QPoint m_panLast;
+    int labelAt(const QPoint& viewportPos) const;
 
     QPixmap m_before;            // A/B comparison: the "before" image (null: off)
     double m_comparePos = 0.5;

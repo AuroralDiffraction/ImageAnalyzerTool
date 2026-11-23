@@ -1,6 +1,7 @@
 #include "ui/MainWindow.h"
 
 #include "ui/AboutDialog.h"
+#include "ui/HsiWorkspace.h"
 #include "ui/ModeSwitch.h"
 #include "ui/SessionTab.h"
 #include "ui/SettingsDialog.h"
@@ -81,7 +82,11 @@ void MainWindow::createMenus()
     file->addSeparator();
     // "Open image…" in single image mode, where the other two are disabled (syncModeUi).
     m_openLightAction = file->addAction(tr("Open &light frames…"), this, [this] {
-        if (SessionTab* t = currentTab()) t->openLightDialog();
+        SessionTab* t = currentTab();
+        if (t && t->isHyperspectral())
+            t->hsiWorkspace()->openFileDialog();
+        else if (t)
+            t->openLightDialog();
     });
     m_openLightAction->setShortcut(QKeySequence(tr("Ctrl+L")));
     m_openDarkAction = file->addAction(tr("Open &dark frames…"), this, [this] {
@@ -132,6 +137,14 @@ void MainWindow::openSettings()
 SessionTab* MainWindow::newTab()
 {
     auto* tab = new SessionTab(m_tabs);
+    // The hyperspectral workspace can take the images of every tab.
+    tab->setImportProvider([this] {
+        QList<ImportCandidate> all;
+        for (int i = 0; i < m_tabs->count(); ++i)
+            if (auto* t = qobject_cast<SessionTab*>(m_tabs->widget(i)))
+                all << t->importCandidates(m_tabs->tabText(i));
+        return all;
+    });
     const int index = m_tabs->addTab(tab, tr("Session %1").arg(++m_tabCounter));
     m_tabs->setCurrentIndex(index);
     connect(tab, &SessionTab::statusMessage, this, [this](const QString& msg) {
@@ -151,10 +164,11 @@ void MainWindow::syncModeUi(bool animate)
     if (!tab)
         return;
     const bool single = tab->isSingleImage();
+    const bool hsi = tab->isHyperspectral();
     m_modeSwitch->setMode(tab->layoutMode(), animate);
-    m_openLightAction->setText(single ? tr("Open &image…") : tr("Open &light frames…"));
-    m_openDarkAction->setEnabled(!single);
-    m_openCalibratedAction->setEnabled(!single);
+    m_openLightAction->setText(hsi ? tr("Open raw &mosaic or cube…") : single ? tr("Open &image…") : tr("Open &light frames…"));
+    m_openDarkAction->setEnabled(!single && !hsi);
+    m_openCalibratedAction->setEnabled(!single && !hsi);
 }
 
 void MainWindow::closeTab(int index)

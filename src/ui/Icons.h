@@ -18,6 +18,8 @@ enum class Glyph {
     Process,  // three sliders: image processing
     Data,     // a table: save values (.mat)
     Picture,  // a picture: save the image (.png)
+    Refresh,  // a circular arrow: do it again with the current settings
+    Reset,    // an arrow turning back: back to the defaults
 };
 
 // `accent`, if valid, marks the icon as "on": part of the drawing takes

@@ -17,7 +17,14 @@
 #include "core/Processing.h"
 #include "io/ImageFileReader.h"
 #include "io/MatFileReader.h"
+#include "core/Hsi.h"
+#include "io/HsiCubeIo.h"
 #include "ui/AboutDialog.h"
+#include "ui/HsiWorkspace.h"
+#include "ui/ImportImageDialog.h"
+#include "ui/MosaicLayoutDialog.h"
+#include "ui/ScorePlot.h"
+#include "ui/SpectrumPlot.h"
 #include "ui/ImagePanel.h"
 #include "ui/ImageView.h"
 #include "ui/Language.h"
@@ -35,6 +42,8 @@
 #include <QDir>
 #include <QDragEnterEvent>
 #include <QDropEvent>
+#include <QDialogButtonBox>
+#include <QPushButton>
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QIcon>
@@ -49,6 +58,7 @@
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QTemporaryDir>
+#include <QContextMenuEvent>
 #include <QToolButton>
 #include <QUrl>
 #include <QWheelEvent>
@@ -130,7 +140,9 @@ static qint64 textLength(const MatFileContents& c, const char* name)
 // Clicks the single image (left) or three panels (right) side of the switch.
 static void clickSwitch(ModeSwitch* sw, LayoutMode side)
 {
-    const QPointF pos(sw->width() * (side == LayoutMode::Single ? 0.25 : 0.75), sw->height() / 2.0);
+    // Centre of the side's third of the switch.
+    const int index = side == LayoutMode::Single ? 0 : side == LayoutMode::Triple ? 1 : 2;
+    const QPointF pos(sw->width() * (index + 0.5) / 3.0, sw->height() / 2.0);
     QMouseEvent press(QEvent::MouseButtonPress, pos, sw->mapToGlobal(pos), Qt::LeftButton, Qt::LeftButton,
                       Qt::NoModifier);
     QCoreApplication::sendEvent(sw, &press);
@@ -144,6 +156,592 @@ static bool sameImage(const Image2D& a, const Image2D& b)
         if (a.constData()[i] != b.constData()[i])
             return false;
     return true;
+}
+
+
+// ---- hyperspectral workspace (the third position of the layout switch)
+// A synthetic scene: the left half of the image is a "red" material, the
+// right half a flat (white) one; the raw mosaic follows the sensor layout.
+static QVector<double> syntheticChannelValues(bool red)
+{
+    QVector<double> s(hsi::kBands, 0.0);
+    for (int b = 0; b < hsi::kBands; ++b) {
+        const double peak = 480.0 + 9.0 * b;
+        for (int l = 450; l <= 650; ++l) {
+            const double qe = 0.2 * std::exp(-0.5 * std::pow((l - peak) / 8.0, 2.0)) + 0.01;
+            const double L = red ? (l > 590 ? 1.0 : 0.05) : 1.0;
+            s[b] += qe * L * 100.0;
+        }
+    }
+    return s;
+}
+
+// Drags with the left button from image point a to b on an image view.
+static void dragOnView(ImageView* v, const QPointF& a, const QPointF& b)
+{
+    const QPoint pa = v->mapFromScene(a), pb = v->mapFromScene(b);
+    QWidget* vp = v->viewport();
+    QMouseEvent press(QEvent::MouseButtonPress, QPointF(pa), vp->mapToGlobal(QPointF(pa)), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+    QCoreApplication::sendEvent(vp, &press);
+    QMouseEvent move(QEvent::MouseMove, QPointF(pb), vp->mapToGlobal(QPointF(pb)), Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
+    QCoreApplication::sendEvent(vp, &move);
+    QMouseEvent release(QEvent::MouseButtonRelease, QPointF(pb), vp->mapToGlobal(QPointF(pb)), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+    QCoreApplication::sendEvent(vp, &release);
+}
+
+static bool hasOverlay(ImageView* v, const QString& label)
+{
+    for (const ViewOverlay& o : v->overlays())
+        if (o.label == label)
+            return true;
+    return false;
+}
+
+static void testHyperspectral(MainWindow& w, ModeSwitch* sw, const QString& exportDir, const QString& shot)
+{
+    std::printf("hyperspectral workspace\n");
+    auto out = [&](const char* name) { return QDir(exportDir).filePath(QLatin1String(name)); };
+    SessionTab* source = w.currentTab();  // has light and dark frames from the checks above
+    SessionTab* tab = w.newTab();
+    QCoreApplication::processEvents();
+    clickSwitch(sw, LayoutMode::Hyperspectral);
+    waitUntilIdle(w, 5000);
+    HsiWorkspace* hw = tab->hsiWorkspace();
+    check(hw->tool() == HsiWorkspace::Tool::Spectrum && hw->view()->regionTool(), "the mouse starts in spectrum mode");
+    check(tab->isHyperspectral() && sw->mode() == LayoutMode::Hyperspectral && hw->isVisible()
+              && !tab->lightPanel()->isVisible() && !tab->darkPanel()->isVisible(),
+          "the switch's third position shows the hyperspectral workspace");
+    {
+        QAction* open = w.menuBar()->actions().first()->menu()->actions().at(2);
+        check(open->text().contains(QLatin1String("mosaic")), "File menu: Open raw mosaic or cube");
+    }
+
+    // Import from another tab: its image and the calibrated image are offered.
+    {
+        const QList<ImportCandidate> c = source->importCandidates(QStringLiteral("Source"));
+        bool hasCal = false, hasLight = false;
+        for (const ImportCandidate& x : c) {
+            hasCal = hasCal || (x.imageName == QLatin1String("Calibrated frames") && !x.image.isNull());
+            hasLight = hasLight || (x.imageName == QLatin1String("Light frames") && !x.image.isNull());
+        }
+        check(hasCal && hasLight, "another tab offers its light frames and calibrated image");
+        ImportImageDialog dialog(c);
+        check(dialog.select(QStringLiteral("Source"), QStringLiteral("Calibrated frames")) && dialog.selectedIndex() >= 0
+                  && c[dialog.selectedIndex()].imageName == QLatin1String("Calibrated frames"),
+              "import dialog: choose the tab, then the image");
+        hw->importCandidate(c[dialog.selectedIndex()]);
+        waitUntilIdle(w, 30000);
+        const Image2D& cal = c[dialog.selectedIndex()].image;
+        check(!hw->unprocessedCube().isNull() && hw->unprocessedCube().rows() == cal.height() / 4
+                  && hw->unprocessedCube().cols() == cal.width() / 4 && hw->unprocessedCube().bands() == 16,
+              "the imported image becomes a rows/4 × cols/4 × 16 cube");
+    }
+
+    // A synthetic mosaic with two materials.
+    const hsi::MosaicLayout layout = hsi::MosaicLayout::defaultLayout();
+    const QVector<double> red = syntheticChannelValues(true), white = syntheticChannelValues(false);
+    Image2D mosaic(80, 64);
+    for (int y = 0; y < 64; ++y)
+        for (int x = 0; x < 80; ++x)
+            mosaic.data()[y * 80 + x] = (x < 40 ? red : white)[layout.at(y % 4, x % 4) - 1];
+    hw->setMosaic(mosaic, QStringLiteral("synthetic"));
+    waitUntilIdle(w, 30000);
+    const hsi::Cube& cube = hw->cube();
+    check(cube.rows() == 16 && cube.cols() == 20 && std::abs(cube.at(2, 3, 6) - red[6]) < 1e-3
+              && std::abs(cube.at(15, 3, 6) - white[6]) < 1e-3,
+          "mosaic → cube in channel order (extract_hsi_channels.m)");
+    {
+        bool allViews = true;
+        for (int m = 0; m <= int(HsiWorkspace::ViewMode::Classes); ++m) {
+            hw->setViewMode(HsiWorkspace::ViewMode(m));
+            allViews = allViews && !hw->displayedImage().isNull();
+        }
+        hw->setViewMode(HsiWorkspace::ViewMode::Mosaic);
+        const bool mosaicSize = hw->displayedImage().width() == 80;
+        hw->setViewMode(HsiWorkspace::ViewMode::Gallery);
+        const bool gallerySize = hw->displayedImage().width() == 4 * 20 + 3 * 2;
+        check(allViews && mosaicSize && gallerySize, "every view mode shows an image (mosaic, band, all bands, …)");
+    }
+
+    // Extraction methods and processing.
+    {
+        hsi::ExtractOptions o = hw->extractOptions();
+        o.method = hsi::ExtractMethod::Ppid;
+        hw->setExtractOptions(o);
+        waitUntilIdle(w, 30000);
+        const bool full = hw->cube().rows() == 64 && hw->cube().cols() == 80;
+        o.method = hsi::ExtractMethod::Registered;
+        hw->setExtractOptions(o);
+        waitUntilIdle(w, 30000);
+        check(full && hw->cube().rows() == 16, "PPID gives full resolution; registration keeps rows/4 × cols/4");
+        hsi::ProcessingSettings ps;
+        ps.guided = true;
+        ps.upscale = 2;
+        hw->setProcessingSettings(ps);
+        waitUntilIdle(w, 30000);
+        hw->setViewMode(HsiWorkspace::ViewMode::Band);
+        hw->setAbCompare(true);
+        check(hw->cube().rows() == 32 && hw->unprocessedCube().rows() == 16 && hw->view()->hasCompareImage()
+                  && hw->cube().history.last().contains(QLatin1String("upscaled")),
+              "processing (guided filter, 2× upscale) with A/B against the unprocessed cube");
+        hw->setAbCompare(false);
+        o.method = hsi::ExtractMethod::Subsample;  // exact values again for the checks below
+        hw->setExtractOptions(o);
+        waitUntilIdle(w, 30000);
+    }
+
+    // White reference: picked with the mouse, drawn only while reflectance is on, removable.
+    {
+        hw->setProcessingSettings(hsi::ProcessingSettings());
+        waitUntilIdle(w, 30000);
+        hw->setViewMode(HsiWorkspace::ViewMode::Band);
+        hw->setTool(HsiWorkspace::Tool::WhiteReference);
+        QCoreApplication::processEvents();
+        dragOnView(hw->view(), QPointF(12.2, 2.2), QPointF(18.8, 9.8));
+        waitUntilIdle(w, 30000);
+        const hsi::ProcessingSettings ps = hw->processingSettings();
+        const bool picked = ps.reflectance && ps.whiteReference == QRect(12, 2, 7, 8) && hasOverlay(hw->view(), QStringLiteral("White"))
+                            && hw->cube().units == QLatin1String("reflectance") && hw->tool() != HsiWorkspace::Tool::WhiteReference;
+        hsi::ProcessingSettings off = ps;
+        off.reflectance = false;
+        hw->setProcessingSettings(off);
+        waitUntilIdle(w, 30000);
+        const bool hiddenWhenOff = !hasOverlay(hw->view(), QStringLiteral("White"));
+        hw->setProcessingSettings(ps);
+        waitUntilIdle(w, 30000);
+        const bool backWhenOn = hasOverlay(hw->view(), QStringLiteral("White"));
+        hw->clearWhiteReference();
+        waitUntilIdle(w, 30000);
+        check(picked && hiddenWhenOff && backWhenOn && !hasOverlay(hw->view(), QStringLiteral("White"))
+                  && !hw->processingSettings().reflectance && hw->processingSettings().whiteReference.isEmpty()
+                  && hw->cube().units == QLatin1String("DN"),
+              "white area: drawn only while reflectance is on, Clear removes it");
+    }
+
+    // Spectra: a kept area, and one drawn with the mouse.
+    {
+        hw->addRoi(QRect(2, 2, 4, 4), QStringLiteral("Red area"));
+        hw->setTool(HsiWorkspace::Tool::Spectrum);
+        QCoreApplication::processEvents();
+        ImageView* v = hw->view();
+        const double s = double(hw->displayedImage().width()) / hw->unprocessedCube().cols();
+        dragOnView(v, QPointF(13 * s, 3 * s), QPointF(17 * s, 7 * s));
+        const auto& rois = hw->rois();
+        check(rois.size() == 2 && rois[1].rect.left() >= 12 && rois[1].rect.right() <= 17 && v->overlays().size() >= 2,
+              "spectrum tool: drag an area to keep its spectrum (drawn on the image)");
+        const auto series = hw->spectrumPlot()->series();
+        check(!series.isEmpty() && series.first().name == QLatin1String("Red area") && series.first().values.size() == 16
+                  && std::abs(series.first().values[15] - red[15]) < 1.0,
+              "the spectrum plot shows the mean of the area");
+        hw->setTool(HsiWorkspace::Tool::Pan);
+    }
+
+    // Colour reconstruction with a spectral response file (synthetic).
+    {
+        const QString qe = out("synthetic_qe.csv");
+        QFile f(qe);
+        f.open(QIODevice::WriteOnly);
+        QString text = QStringLiteral("Wavelength");
+        for (int b = 1; b <= 16; ++b)
+            text += QStringLiteral(",Band%1").arg(b);
+        text += QLatin1Char('\n');
+        for (int l = 450; l <= 650; ++l) {
+            text += QString::number(l);
+            for (int b = 0; b < 16; ++b)
+                text += QStringLiteral(",%1").arg(100.0 * (0.2 * std::exp(-0.5 * std::pow((l - 480.0 - 9.0 * b) / 8.0, 2.0)) + 0.01), 0, 'g', 12);
+            text += QLatin1Char('\n');
+        }
+        f.write(text.toUtf8());
+        f.close();
+        hsi::ProcessingSettings none;
+        hw->setProcessingSettings(none);
+        waitUntilIdle(w, 30000);
+        check(hw->loadResponse(qe) && hw->hasColour() && hw->viewMode() == HsiWorkspace::ViewMode::Colour
+                  && hw->cube().hasWavelengths() && std::abs(hw->cube().wavelengths[0] - 480.0) < 1e-9,
+              "loading a spectral response: band wavelengths and the colour view");
+        hsi::ColourSettings cs = hw->colourSettings();
+        cs.whiteBalance = hsi::WhiteBalance::Flat;
+        hw->setColourSettings(cs);
+        const QImage img = hw->displayedImage();
+        const QColor l = img.pixelColor(3, 8), r = img.pixelColor(16, 8);
+        check(l.red() > l.green() + 40 && l.red() > l.blue() + 40 && std::abs(r.red() - r.green()) <= 2
+                  && std::abs(r.green() - r.blue()) <= 2,
+              "colour reconstruction: the red material is red, the flat one grey");
+    }
+
+    // Correction panel: spectral correction, reference frames, sensor profile.
+    {
+        CorrectionSettings cs = hw->correctionSettings();
+        cs.spectralCorrection = true;
+        hw->applyCorrectionSettings(cs);
+        waitUntilIdle(w, 30000);
+        const hsi::SpectralCorrection& corr = hw->spectralCorrection();
+        bool centres = corr.isValid() && hw->cube().bands() == 16 && hw->cube().wavelengths == corr.centres;
+        double diff = 0.0;
+        for (int b = 0; b < 16; ++b)
+            diff = std::max(diff, double(std::abs(hw->unprocessedCube().at(2, 3, b) - hw->extractedCube().at(2, 3, b))));
+        const QColor l = hw->displayedImage().pixelColor(3, 8);
+        check(centres && diff > 1e-6 && l.red() > l.green() + 40,
+              "spectral correction: narrow bands at the channel peaks, colour still right");
+
+        // Save a sensor profile, turn correction off, load the profile back.
+        const QString profile = out("synthetic.iatsensor");
+        const bool saved = hw->saveSensorProfile(profile);
+        cs.spectralCorrection = false;
+        hw->applyCorrectionSettings(cs);
+        waitUntilIdle(w, 30000);
+        const bool off = !hw->spectralCorrection().isValid();
+        const bool loaded = hw->loadSensorProfile(profile);
+        waitUntilIdle(w, 30000);
+        check(saved && off && loaded && hw->correctionSettings().spectralCorrection && hw->spectralCorrection().isValid(),
+              "sensor profile: saved and loaded back with its spectral correction");
+        cs = hw->correctionSettings();
+        cs.spectralCorrection = false;
+        hw->applyCorrectionSettings(cs);
+        waitUntilIdle(w, 30000);
+
+        // Dark and white frames: the white material becomes reflectance 1.
+        Image2D scene(80, 64), dark(80, 64), whiteFrame(80, 64);
+        for (qsizetype i = 0; i < scene.pixelCount(); ++i) {
+            const int x = int(i % 80), y = int(i / 80);
+            scene.data()[i] = mosaic.constData()[i] + 5.0;
+            dark.data()[i] = 5.0;
+            whiteFrame.data()[i] = white[layout.at(y % 4, x % 4) - 1] + 5.0;
+        }
+        hw->setMosaic(scene, QStringLiteral("scene"));
+        hw->setReferenceFrame(false, dark, QStringLiteral("dark"));
+        hw->setReferenceFrame(true, whiteFrame, QStringLiteral("white"));
+        waitUntilIdle(w, 30000);
+        const hsi::Cube& c = hw->cube();
+        check(c.units == QLatin1String("reflectance") && std::abs(c.at(15, 3, 6) - 1.0) < 1e-6
+                  && std::abs(c.at(2, 3, 6) - red[6] / white[6]) < 1e-6,
+              "dark and white frames: per-pixel flat field gives reflectance");
+        hw->clearReferenceFrame(false);
+        hw->clearReferenceFrame(true);
+        hw->setMosaic(mosaic, QStringLiteral("synthetic"));
+        waitUntilIdle(w, 30000);
+    }
+
+    // Preprocessing: SNV gives every spectrum mean 0.
+    {
+        hsi::ProcessingSettings ps;
+        ps.normalisation = hsi::SpectralNormalisation::Snv;
+        hw->setProcessingSettings(ps);
+        waitUntilIdle(w, 30000);
+        const QVector<double> sp = hw->cube().spectrum(2, 3);
+        double mean = 0.0;
+        for (double v : sp)
+            mean += v / sp.size();
+        const bool snv = hw->cube().units == QLatin1String("normalised") && std::abs(mean) < 1e-6;
+        ps.normalisation = hsi::SpectralNormalisation::None;
+        ps.derivative = 1;
+        hw->setProcessingSettings(ps);
+        waitUntilIdle(w, 30000);
+        const bool deriv = hw->cube().units == QLatin1String("derivative") && hw->processingSettings().derivative == 1;
+        hw->setProcessingSettings(hsi::ProcessingSettings());
+        waitUntilIdle(w, 30000);
+        check(snv && deriv, "preprocessing: SNV and Savitzky–Golay derivative");
+    }
+
+    // PCA score plot: a loop drawn around the red material's points selects its pixels.
+    {
+        hw->setScoreComponents(0, 1);
+        ScorePlot* plot = hw->scorePlot();
+        QCoreApplication::processEvents();
+        const hsi::Pca pca = hsi::principalComponents(hw->cube());
+        const double sx = hsi::pcaComponent(hw->cube(), pca, 0).at(2, 3), sy = hsi::pcaComponent(hw->cube(), pca, 1).at(2, 3);
+        const QPointF centre = plot->toWidget(QPointF(sx, sy));
+        QPolygonF loop;
+        for (int k = 0; k <= 12; ++k)
+            loop << centre + 12.0 * QPointF(std::cos(k * 0.5235987755982988), std::sin(k * 0.5235987755982988));
+        auto mouse = [&](QEvent::Type type, const QPointF& at, Qt::MouseButton b, Qt::MouseButtons bs) {
+            QMouseEvent e(type, at, plot->mapToGlobal(at), b, bs, Qt::NoModifier);
+            QCoreApplication::sendEvent(plot, &e);
+        };
+        mouse(QEvent::MouseButtonPress, loop[0], Qt::LeftButton, Qt::LeftButton);
+        for (const QPointF& p : loop)
+            mouse(QEvent::MouseMove, p, Qt::NoButton, Qt::LeftButton);
+        mouse(QEvent::MouseButtonRelease, loop.last(), Qt::LeftButton, Qt::NoButton);
+        hw->setViewMode(HsiWorkspace::ViewMode::Band);
+        const QColor tinted = hw->displayedImage().pixelColor(2, 3), plain = hw->displayedImage().pixelColor(15, 3);
+        const bool selected = hw->selectionCount() == 16 * 10 && hw->selectionMask()[3 * 20 + 2] && !hw->selectionMask()[3 * 20 + 15];
+        check(plot->hasScores() && selected && tinted.green() < tinted.red() && plain.red() == plain.green(),
+              "score plot: a loop around the red material selects its 160 pixels, shown in the image");
+        hw->keepScoreSelection();
+        const bool kept = hw->keptSelectionCount() == 1;
+        hw->removeKeptSelection(0);
+        mouse(QEvent::MouseButtonPress, centre, Qt::RightButton, Qt::RightButton);
+        check(kept && hw->keptSelectionCount() == 0 && hw->selectionCount() == 0,
+              "score plot: Keep adds the selection's spectrum; right-click removes the selection");
+    }
+
+    // Analysis.
+    {
+        hw->setIndexFormula(QStringLiteral("(R531 - R570) / (R531 + R570)"));
+        const bool pri = hw->viewMode() == HsiWorkspace::ViewMode::Index && hw->indexError().isEmpty()
+                         && !hw->displayedImage().isNull();
+        hw->setIndexFormula(QStringLiteral("(R800 - R670) / (R800 + R670)"));
+        check(pri && hw->indexError().contains(QLatin1String("800")),
+              "spectral index: PRI works, NDVI is refused (no near-infrared)");
+        hw->setSimilarityReference(hw->cube().spectrum(3, 3), QStringLiteral("test"));
+        hw->setSimilarityThreshold(2.0);
+        check(hw->viewMode() == HsiWorkspace::ViewMode::Similarity && hw->similarPixelCount() == 16 * 10,
+              "similar areas: the pixels of the same material are marked");
+        hw->runClustering(2);
+        waitUntilIdle(w, 30000);
+        const hsi::Clustering& k = hw->clustering();
+        check(k.isValid() && k.k == 2 && k.labels[3] != k.labels[16] && k.sizes[0] == 160 && k.sizes[1] == 160,
+              "k-means: the two materials become two classes");
+    }
+
+    // Right-click on a box's label removes it.
+    {
+        hw->setViewMode(HsiWorkspace::ViewMode::Band);
+        hw->addRoi(QRect(8, 8, 3, 3), QStringLiteral("Temporary"));
+        ImageView* v = hw->view();
+        const int before = int(hw->rois().size());
+        const QRect label = v->overlayLabelRect(int(v->overlays().size()) - 1);
+        QContextMenuEvent menu(QContextMenuEvent::Mouse, label.center(), v->viewport()->mapToGlobal(label.center()));
+        QCoreApplication::sendEvent(v->viewport(), &menu);
+        bool gone = true;
+        for (const auto& r : hw->rois())
+            gone = gone && r.name != QLatin1String("Temporary");
+        check(!label.isEmpty() && int(hw->rois().size()) == before - 1 && gone && !hasOverlay(v, QStringLiteral("Temporary")),
+              "right-click on a box's label removes the box");
+    }
+
+    // Match to drawn areas: every pixel in the colour of the most similar area.
+    {
+        hw->setMatchAngle(8.0);
+        hw->setViewMode(HsiWorkspace::ViewMode::Matches);
+        const hsi::AreaMatch& m = hw->areaMatch();
+        const QImage img = hw->displayedImage();
+        const auto& rois = hw->rois();
+        check(m.isValid() && m.k == 2 && m.counts[0] == 160 && m.counts[1] == 160 && rois.size() == 2
+                  && img.pixelColor(3, 8) == rois[0].color && img.pixelColor(16, 8) == rois[1].color,
+              "match to drawn areas: each material in its area's colour");
+    }
+
+    // A/B is off when there is nothing to compare, on with a processing step.
+    {
+        QToolButton* ab = nullptr;
+        for (QToolButton* b : hw->findChildren<QToolButton*>())
+            if (b->text() == QLatin1String("A/B"))
+                ab = b;
+        hw->setViewMode(HsiWorkspace::ViewMode::Band);
+        const bool offWithout = ab && !ab->isEnabled();
+        hsi::ProcessingSettings ps;
+        ps.antiAlias = true;
+        hw->setProcessingSettings(ps);
+        waitUntilIdle(w, 30000);
+        hw->setAbCompare(true);
+        const bool onWith = ab->isEnabled() && hw->view()->hasCompareImage();
+        hw->setAbCompare(false);
+        hw->setProcessingSettings(hsi::ProcessingSettings());
+        waitUntilIdle(w, 30000);
+        check(offWithout && onWith, "A/B: disabled without processing, compares with it");
+    }
+
+    // Two and four views in step.
+    {
+        hw->setPaneCount(4);
+        hw->setPaneMode(1, HsiWorkspace::ViewMode::FalseColour);
+        hw->setPaneMode(2, HsiWorkspace::ViewMode::Mosaic);
+        hw->setPaneMode(3, HsiWorkspace::ViewMode::Gallery);
+        QCoreApplication::processEvents();
+        bool all = hw->paneCount() == 4;
+        for (int i = 0; i < 4; ++i)
+            all = all && hw->paneView(i)->isVisible() && !hw->paneImage(i).isNull();
+        check(all && hw->paneImage(2).width() == 80, "four views, each with its own view mode");
+
+        // A click in view 2 makes it active: View: and the band slider then act on it alone.
+        {
+            QWidget* vp = hw->paneView(1)->viewport();
+            const QPoint c = vp->rect().center();
+            QMouseEvent press(QEvent::MouseButtonPress, QPointF(c), vp->mapToGlobal(QPointF(c)), Qt::RightButton, Qt::RightButton, Qt::NoModifier);
+            QCoreApplication::sendEvent(vp, &press);
+            QMouseEvent release(QEvent::MouseButtonRelease, QPointF(c), vp->mapToGlobal(QPointF(c)), Qt::RightButton, Qt::NoButton, Qt::NoModifier);
+            QCoreApplication::sendEvent(vp, &release);
+            const bool activated = hw->activePane() == 1 && hw->viewMode() == HsiWorkspace::ViewMode::FalseColour;
+            hw->setViewMode(HsiWorkspace::ViewMode::Band);
+            hw->setBand(3);
+            hw->setActivePane(0);
+            const bool own = hw->paneMode(1) == HsiWorkspace::ViewMode::Band && hw->paneMode(0) == HsiWorkspace::ViewMode::Band
+                             && hw->band() == 0;
+            hw->setActivePane(1);
+            const bool kept = hw->band() == 3;
+            hw->setPaneMode(1, HsiWorkspace::ViewMode::FalseColour);
+            hw->setActivePane(0);
+            QCoreApplication::processEvents();
+            check(activated && own && kept, "click a view to make it active; each view keeps its own mode and band");
+        }
+
+        // The mouse over view 1 at cube pixel (5, 6): a pointer at the same place in the others.
+        ImageView* v0 = hw->paneView(0);
+        const QPoint at = v0->mapFromScene(QPointF(5.5, 6.5));
+        QMouseEvent move(QEvent::MouseMove, QPointF(at), v0->viewport()->mapToGlobal(QPointF(at)), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(v0->viewport(), &move);
+        const auto p1 = hw->paneView(1)->pointers(), p2 = hw->paneView(2)->pointers(), p3 = hw->paneView(3)->pointers();
+        check(v0->pointers().isEmpty() && p1.size() == 1 && p1[0] == QPointF(5.5, 6.5) && p2.size() == 1
+                  && p2[0] == QPointF(22.0, 26.0) && p3.size() == 16,
+              "the pointer mirrors the mouse in every view (all 16 bands in the band gallery)");
+
+        // Zoom in view 2: views 1 and 3 follow (view 3 shows the 4× larger mosaic).
+        ImageView* v1 = hw->paneView(1);
+        ViewState zoomed{false, v1->viewState().zoom * 2.0, QPointF(10.0, 8.0)};
+        v1->setViewState(zoomed);
+        emit v1->viewStateChanged();
+        const ViewState s0 = hw->paneView(0)->viewState(), s2 = hw->paneView(2)->viewState();
+        check(!s0.fit && std::abs(s0.zoom - zoomed.zoom) < 1e-9 && std::abs(s2.zoom * 4.0 - zoomed.zoom) < 1e-9
+                  && std::abs(s2.center.x() - 4.0 * s0.center.x()) < 2.0,
+              "zoom and pan follow in all views");
+
+        // An area drawn in the mosaic view (view 3) is kept in cube pixels.
+        const int before = int(hw->rois().size());
+        hw->setTool(HsiWorkspace::Tool::Spectrum);
+        hw->paneView(2)->fitToWindow();
+        {
+            // Clicking a view makes it the active one, without moving the views.
+            const QPoint m0 = hw->paneView(2)->mapFromScene(QPointF(4.2, 4.2));
+            hw->setActivePane(2);
+            QCoreApplication::processEvents();
+            check(hw->activePane() == 2 && hw->viewMode() == HsiWorkspace::ViewMode::Mosaic
+                      && hw->paneView(2)->mapFromScene(QPointF(4.2, 4.2)) == m0,
+                  "the active view sets View: and the views stay where they are");
+        }
+        dragOnView(hw->paneView(2), QPointF(4.2, 4.2), QPointF(15.8, 11.8));
+        check(int(hw->rois().size()) == before + 1 && hw->rois().last().rect == QRect(1, 1, 3, 2)
+                  && hasOverlay(hw->paneView(1), hw->rois().last().name),
+              "an area drawn in any view shows in all of them");
+        hw->removeRoi(int(hw->rois().size()) - 1);
+        // Reset and refresh, one view and all of them.
+        hw->setActivePane(0);
+        hw->setBand(5);
+        hw->setPaneMode(3, HsiWorkspace::ViewMode::Index);
+        hw->resetPane(3);
+        const bool paneReset = hw->paneMode(3) == HsiWorkspace::ViewMode::Pca && hw->band() == 5;
+        hw->refreshPane(3);
+        const bool paneRefreshed = !hw->paneImage(3).isNull();
+        hsi::ProcessingSettings heavy;
+        heavy.guided = true;
+        hw->setProcessingSettings(heavy);
+        waitUntilIdle(w, 30000);
+        hw->resetAll();
+        waitUntilIdle(w, 30000);
+        const bool allReset = !hw->processingSettings().any() && hw->band() == 0 && hw->activePane() == 0
+                              && hw->paneMode(0) == HsiWorkspace::ViewMode::Band && hw->paneMode(2) == HsiWorkspace::ViewMode::FalseColour;
+        hw->refreshAll();
+        const bool started = hw->isBusy();
+        waitUntilIdle(w, 30000);
+        check(paneReset && paneRefreshed && allReset && started && !hw->isBusy() && hw->cube().cols() == 20,
+              "reset and refresh: one view and all of them");
+
+        hw->setPaneCount(1);
+        QCoreApplication::processEvents();
+        QWidget* grid = hw->paneView(0)->parentWidget()->parentWidget();
+        const QWidget* box = hw->paneView(0)->parentWidget();
+        check(!hw->paneView(1)->isVisible() && hw->paneCount() == 1 && box->width() > grid->width() * 0.95
+                  && box->height() > grid->height() * 0.95,
+              "back to one view, which fills the whole area");
+    }
+
+    // Mosaic layout: a settings dialog instead of a grid in the panel.
+    {
+        bool buttonFound = false;
+        for (QPushButton* b : hw->findChildren<QPushButton*>())
+            buttonFound = buttonFound || b->text() == QStringLiteral("Mosaic layout…");
+        MosaicLayoutDialog dialog(hsi::MosaicLayout::defaultLayout());
+        const bool startsValid = dialog.isValid() && dialog.layout() == hsi::MosaicLayout::defaultLayout();
+        dialog.setChannel(0, 0, 8);  // channel 8 twice, channel 1 missing
+        auto* ok = dialog.findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Ok);
+        const bool refusesInvalid = !dialog.isValid() && !ok->isEnabled();
+        dialog.findChild<QPushButton*>(QStringLiteral("mosaicPreset2"))->click();  // Serpentine
+        const bool serpentine = dialog.layout() == hsi::MosaicLayout::preset(hsi::MosaicLayout::Preset::Serpentine);
+        int presetButtons = 0;
+        for (int p = 0; p < 4; ++p)
+            presetButtons += dialog.findChild<QPushButton*>(QStringLiteral("mosaicPreset%1").arg(p)) != nullptr;
+        check(buttonFound && startsValid && refusesInvalid && serpentine && presetButtons == 4 && dialog.isValid()
+                  && ok->isEnabled()
+                  && MosaicLayoutDialog::describe(hsi::MosaicLayout::defaultLayout()) == QLatin1String("serpentine (vertical)"),
+              "mosaic layout: a settings dialog with four presets that refuses an invalid layout");
+    }
+
+    // A large mosaic with the heaviest settings (guided filter with
+    // anti-aliasing used to crash, a race between threads whatever the size):
+    // "Processing…" is shown while it works.
+    {
+        Image2D big(640, 512);
+        for (int y = 0; y < 512; ++y)
+            for (int x = 0; x < 640; ++x)
+                big.data()[qsizetype(y) * 640 + x] = (x < 320 ? red : white)[layout.at(y % 4, x % 4) - 1] * (1.0 + 0.1 * std::sin(x * 0.05));
+        hsi::ExtractOptions o = hw->extractOptions();
+        o.method = hsi::ExtractMethod::Ppid;
+        hw->setExtractOptions(o);
+        hsi::ProcessingSettings ps;
+        ps.mnf = true;
+        ps.guided = true;
+        ps.antiAlias = true;
+        hw->setProcessingSettings(ps);
+        hw->setMosaic(big, QStringLiteral("big"));
+        bool shown = false;
+        QElapsedTimer t;
+        t.start();
+        while (hw->isBusy() && t.elapsed() < 120000) {
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
+            shown = shown || hw->busyIndicatorVisible();
+        }
+        for (int i = 0; i < 10; ++i)
+            QCoreApplication::processEvents();
+        check(shown && !hw->busyIndicatorVisible() && hw->cube().rows() == 512 && hw->cube().cols() == 640,
+              "large mosaic with guided filter + anti-aliasing: no crash, Processing… shown while busy");
+        o.method = hsi::ExtractMethod::Subsample;
+        hw->setExtractOptions(o);
+        hw->setProcessingSettings(hsi::ProcessingSettings());
+        hw->setMosaic(mosaic, QStringLiteral("synthetic"));
+        waitUntilIdle(w, 30000);
+    }
+
+    // Exports, and reading the ENVI cube back in a new tab.
+    {
+        QString err;
+        const bool envi = hw->exportCube(out("hsi_cube.hdr"), HsiWorkspace::CubeFormat::Envi, hsi::SampleType::Float32, false, &err);
+        const bool mat = hw->exportCube(out("hsi_cube.mat"), HsiWorkspace::CubeFormat::Mat, hsi::SampleType::UInt16, false, &err);
+        const bool tif = hw->exportCube(out("hsi_cube.tif"), HsiWorkspace::CubeFormat::Tiff, hsi::SampleType::Float32, false, &err);
+        hw->setViewMode(HsiWorkspace::ViewMode::Colour);
+        const bool png = hw->exportView(out("hsi_view.png"));
+        const bool csv = hw->exportSpectra(out("hsi_spectra.csv"), &err);
+        check(envi && mat && tif && png && csv && QFileInfo::exists(out("hsi_cube.img")),
+              "export: ENVI, MAT, multi-page TIFF, view PNG, spectra CSV");
+        const MatFileContents m = MatFileReader::read(out("hsi_cube.mat"));
+        check(m.ok() && variable(m, "cube").dims == (QVector<qint64>{16, 20, 16}) && variable(m, "cube").matlabClass == QLatin1String("uint16")
+                  && variable(m, "wavelengths").dims == (QVector<qint64>{16, 1}) && variable(m, "mosaicLayout").supported,
+              "the .mat cube: rows × cols × bands, wavelengths and mosaic layout");
+        SessionTab* third = w.newTab();
+        third->setLayoutMode(LayoutMode::Hyperspectral);
+        third->hsiWorkspace()->loadFile(out("hsi_cube.hdr"));
+        waitUntilIdle(w, 30000);
+        const hsi::Cube& back = third->hsiWorkspace()->cube();
+        check(back.data() == hw->cube().data() && back.wavelengths == hw->cube().wavelengths,
+              "an ENVI cube dropped into a workspace reads back identically");
+        if (!shot.isEmpty()) {
+            QString hsiShot = shot;
+            hsiShot.replace(QLatin1String(".png"), QLatin1String("_hsi.png"));
+            w.findChild<QTabWidget*>()->setCurrentWidget(tab);
+            hw->setViewMode(HsiWorkspace::ViewMode::Colour);
+            w.statusBar()->clearMessage();
+            QCoreApplication::processEvents();
+            w.grab().save(hsiShot);
+        }
+        w.closeTab(w.findChild<QTabWidget*>()->indexOf(third));
+    }
+
+    // Back to a single image: the workspace hides, the panel returns.
+    tab->setLayoutMode(LayoutMode::Single);
+    QCoreApplication::processEvents();
+    check(!hw->isVisible() && tab->lightPanel()->isVisible() && sw->mode() == LayoutMode::Single,
+          "back to single image mode");
+    w.closeTab(w.findChild<QTabWidget*>()->indexOf(tab));
+    waitUntilIdle(w, 5000);
 }
 
 int main(int argc, char* argv[])
@@ -916,6 +1514,8 @@ int main(int argc, char* argv[])
         aboutShot = about.grab().toImage();
     }
 
+    testHyperspectral(w, sw, exportDir, shot);
+
     // ---- interface language
     std::printf("language\n");
     check(language::defaultCode() == QLatin1String("zh_CN") && language::languages().size() == 2
@@ -975,6 +1575,16 @@ int main(int argc, char* argv[])
             }
             zd->resetAll();
             waitUntilIdle(zh, 60000);
+        }
+        {
+            // The hyperspectral workspace in Chinese.
+            zt->setLayoutMode(LayoutMode::Hyperspectral);
+            QCoreApplication::processEvents();
+            auto* vm = zt->hsiWorkspace()->findChild<QComboBox*>(QStringLiteral("hsiViewMode"));
+            check(vm && vm->itemText(1) == QStringLiteral("波段") && vm->itemText(3) == QStringLiteral("彩色 (sRGB)")
+                      && zh.menuBar()->actions().first()->menu()->actions().at(2)->text().startsWith(QStringLiteral("打开原始马赛克")),
+                  "the hyperspectral workspace is translated");
+            zt->setLayoutMode(LayoutMode::Single);
         }
         SettingsDialog settings(&zh);
         auto* combo = settings.findChild<QComboBox*>();

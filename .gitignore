@@ -8,3 +8,24 @@ CMakeLists.txt.user*
 .vs/
 .vscode/
 __pycache__/
+
+# Private sensor data for local development only. Never commit these:
+# spectral responses / reconstruction matrices, and hsi_reconstruct.m outputs
+# (its _cube.mat files contain the QE curves too). Point the optional
+# comparison test at them with IAT_LOCAL_HSI_DATA instead (see tests/tst_hsi.cpp).
+local_data/
+**/reconstruction_matrix*
+**/*_cube.mat
+**/*QE*.csv
+**/*QE*.xlsx
+hsi_*.tif
+hsi_*.tiff
+# Sensor profiles hold paths to the files above; correction matrices and
+# exported cubes (ENVI .hdr/.img, multi-page TIFF) can hold sensor data too.
+*.iatsensor
+**/*correction_matrix*
+**/*correctionMatrix*
+*.hdr
+*.img
+*_cube.tif
+*_cube.tiff
